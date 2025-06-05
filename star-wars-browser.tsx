@@ -68,113 +68,123 @@ export default function StarWarsBrowser() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-8 text-center">
-        <h1 className="text-4xl font-bold text-foreground mb-2">Star Wars Characters</h1>
-        <p className="text-muted-foreground">Explore the galaxy far, far away...</p>
+    <div className="min-h-screen relative">
+      {/* Animated Space Background */}
+      <div className="fixed inset-0 bg-gradient-to-b from-slate-900 via-purple-900 to-slate-900">
+        <div className="stars"></div>
+        <div className="stars2"></div>
+        <div className="stars3"></div>
       </div>
 
-      {/* Character Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-        {currentCharacters.map((character) => (
-          <Card
-            key={character.id}
-            className="group hover:shadow-lg transition-all duration-300 hover:-translate-y-1 border-border"
-          >
-            <CardHeader className="pb-3">
-              <div className="relative w-full h-48 mb-3 overflow-hidden rounded-md bg-muted">
-                <Image
-                  src={`https://starwars-visualguide.com/assets/img/characters/${character.id}.jpg`}
-                  alt={character.name}
-                  fill
-                  className="object-cover transition-transform duration-300 group-hover:scale-105"
-                  onError={handleImageError}
+      {/* Content */}
+      <div className="relative z-10 container mx-auto px-4 py-8">
+        <div className="mb-8 text-center">
+          <h1 className="text-4xl font-bold text-white mb-2 drop-shadow-lg">Star Wars Characters</h1>
+          <p className="text-gray-300">Explore the galaxy far, far away...</p>
+        </div>
+
+        {/* Character Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+          {currentCharacters.map((character) => (
+            <Card
+              key={character.id}
+              className="group hover:shadow-2xl hover:shadow-purple-500/25 transition-all duration-300 hover:-translate-y-1 border-slate-700 bg-slate-800/80 backdrop-blur-sm"
+            >
+              <CardHeader className="pb-3">
+                <div className="relative w-full h-48 mb-3 overflow-hidden rounded-md bg-slate-700">
+                  <Image
+                    src={`https://starwars-visualguide.com/assets/img/characters/${character.id}.jpg`}
+                    alt={character.name}
+                    fill
+                    className="object-cover transition-transform duration-300 group-hover:scale-105"
+                    onError={handleImageError}
+                  />
+                </div>
+                <CardTitle className="text-xl font-bold text-center group-hover:text-yellow-400 transition-colors text-white">
+                  {character.name}
+                </CardTitle>
+              </CardHeader>
+
+              <CardContent className="space-y-3">
+                <div className="flex items-center gap-2 text-sm text-gray-300">
+                  <Ruler className="w-4 h-4" />
+                  <span>Height: {character.height === "unknown" ? "Unknown" : `${character.height} cm`}</span>
+                </div>
+
+                <div className="flex items-center gap-2 text-sm text-gray-300">
+                  <Calendar className="w-4 h-4" />
+                  <span>Born: {character.birth_year}</span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <User className="w-4 h-4 text-gray-300" />
+                  <Badge variant="secondary" className={getGenderColor(character.gender)}>
+                    {character.gender === "n/a" ? "Droid" : character.gender}
+                  </Badge>
+                </div>
+              </CardContent>
+
+              <CardFooter>
+                <Button
+                  className="w-full group-hover:bg-yellow-500 group-hover:text-black transition-colors bg-slate-700 text-white border-slate-600 hover:bg-yellow-500 hover:text-black"
+                  variant="outline"
+                >
+                  <Eye className="w-4 h-4 mr-2" />
+                  View Details
+                </Button>
+              </CardFooter>
+            </Card>
+          ))}
+        </div>
+
+        {/* Pagination */}
+        <div className="flex justify-center">
+          <Pagination>
+            <PaginationContent className="bg-slate-800/80 backdrop-blur-sm rounded-lg p-2">
+              <PaginationItem>
+                <PaginationPrevious
+                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                  className={`text-white hover:bg-slate-700 ${currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}`}
                 />
-              </div>
-              <CardTitle className="text-xl font-bold text-center group-hover:text-primary transition-colors">
-                {character.name}
-              </CardTitle>
-            </CardHeader>
+              </PaginationItem>
 
-            <CardContent className="space-y-3">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Ruler className="w-4 h-4" />
-                <span>Height: {character.height === "unknown" ? "Unknown" : `${character.height} cm`}</span>
-              </div>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                if (page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)) {
+                  return (
+                    <PaginationItem key={page}>
+                      <PaginationLink
+                        onClick={() => setCurrentPage(page)}
+                        isActive={currentPage === page}
+                        className={`cursor-pointer text-white hover:bg-slate-700 ${currentPage === page ? "bg-yellow-500 text-black hover:bg-yellow-400" : ""}`}
+                      >
+                        {page}
+                      </PaginationLink>
+                    </PaginationItem>
+                  )
+                } else if (page === currentPage - 2 || page === currentPage + 2) {
+                  return (
+                    <PaginationItem key={page}>
+                      <PaginationEllipsis className="text-gray-400" />
+                    </PaginationItem>
+                  )
+                }
+                return null
+              })}
 
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Calendar className="w-4 h-4" />
-                <span>Born: {character.birth_year}</span>
-              </div>
+              <PaginationItem>
+                <PaginationNext
+                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                  className={`text-white hover:bg-slate-700 ${currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}`}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
 
-              <div className="flex items-center gap-2">
-                <User className="w-4 h-4 text-muted-foreground" />
-                <Badge variant="secondary" className={getGenderColor(character.gender)}>
-                  {character.gender === "n/a" ? "Droid" : character.gender}
-                </Badge>
-              </div>
-            </CardContent>
-
-            <CardFooter>
-              <Button
-                className="w-full group-hover:bg-primary group-hover:text-primary-foreground transition-colors"
-                variant="outline"
-              >
-                <Eye className="w-4 h-4 mr-2" />
-                View Details
-              </Button>
-            </CardFooter>
-          </Card>
-        ))}
-      </div>
-
-      {/* Pagination */}
-      <div className="flex justify-center">
-        <Pagination>
-          <PaginationContent>
-            <PaginationItem>
-              <PaginationPrevious
-                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
-              />
-            </PaginationItem>
-
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
-              if (page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)) {
-                return (
-                  <PaginationItem key={page}>
-                    <PaginationLink
-                      onClick={() => setCurrentPage(page)}
-                      isActive={currentPage === page}
-                      className="cursor-pointer"
-                    >
-                      {page}
-                    </PaginationLink>
-                  </PaginationItem>
-                )
-              } else if (page === currentPage - 2 || page === currentPage + 2) {
-                return (
-                  <PaginationItem key={page}>
-                    <PaginationEllipsis />
-                  </PaginationItem>
-                )
-              }
-              return null
-            })}
-
-            <PaginationItem>
-              <PaginationNext
-                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
-              />
-            </PaginationItem>
-          </PaginationContent>
-        </Pagination>
-      </div>
-
-      {/* Results Info */}
-      <div className="text-center mt-6 text-sm text-muted-foreground">
-        Showing {startIndex + 1}-{Math.min(endIndex, mockCharacters.length)} of {mockCharacters.length} characters
+        {/* Results Info */}
+        <div className="text-center mt-6 text-sm text-gray-300">
+          Showing {startIndex + 1}-{Math.min(endIndex, mockCharacters.length)} of {mockCharacters.length} characters
+        </div>
       </div>
     </div>
   )
