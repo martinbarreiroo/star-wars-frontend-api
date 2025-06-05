@@ -47,7 +47,7 @@ interface ApiResponse {
   data: Character[]
 }
 
-const API_BASE_URL = "https://starwars-databank.vercel.app/api"
+const API_BASE_URL = "https://starwars-databank-server.vercel.app/api/v1"
 
 export default function StarWarsBrowser() {
   const [characters, setCharacters] = useState<Character[]>([])
