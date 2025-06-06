@@ -1,17 +1,7 @@
-"use client";
-
-import type React from "react";
-import { useState, useEffect } from "react";
-import axios from "axios";
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+"use client"
+import { useState, useEffect } from "react"
+import { Card, CardContent } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import {
   Pagination,
   PaginationContent,
@@ -20,112 +10,136 @@ import {
   PaginationLink,
   PaginationNext,
   PaginationPrevious,
-} from "@/components/ui/pagination";
-import { Eye, User, Calendar, Ruler, Loader2 } from "lucide-react";
-import Image from "next/image";
-
-// Types based on the API structure
-interface Character {
-  _id: string;
-  name: string;
-  description: string;
-  image: string;
-  affiliations?: string[];
-  species?: string;
-  gender?: string;
-  height?: string;
-  mass?: string;
-  hair_color?: string;
-  eye_color?: string;
-  skin_color?: string;
-  birth_year?: string;
-  homeworld?: string;
-}
-
-interface ApiResponse {
-  info: {
-    total: number;
-    page: number;
-    limit: number;
-    next: string | null;
-    prev: string | null;
-  };
-  data: Character[];
-}
-
-const API_BASE_URL = "https://starwars-databank-server.vercel.app/api/v1";
+} from "@/components/ui/pagination"
+import { Loader2, Menu, X, AlertTriangle, RefreshCw } from "lucide-react"
+import { enhancedStarWarsService } from "@/services/enhancedStarWarsService"
+import { type EnhancedEntity, ENTITY_MAPPINGS } from "@/services/enhancedTypes"
+import type { EntityType } from "@/services/types"
+import EnhancedStarWarsSidebar from "@/components/EnhancedStarWarsSidebar"
+import EnhancedEntityCard from "@/components/EnhancedEntityCard"
+import { swapiService } from "@/services/swapiService"
 
 export default function StarWarsBrowser() {
-  const [characters, setCharacters] = useState<Character[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalCharacters, setTotalCharacters] = useState(0);
+  const [entities, setEntities] = useState<EnhancedEntity[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalEntities, setTotalEntities] = useState(0)
+  const [selectedCategory, setSelectedCategory] = useState<EntityType>("characters")
+  const [searchQuery, setSearchQuery] = useState("")
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [entityCounts, setEntityCounts] = useState<Record<EntityType, number>>({})
+  const [swapiStatus, setSwapiStatus] = useState<"checking" | "available" | "unavailable">("checking")
+  const [enhancementInProgress, setEnhancementInProgress] = useState(false)
 
-  const fetchCharacters = async (page: number) => {
+  const fetchEntities = async (page: number, category: EntityType, search?: string) => {
     try {
-      setLoading(true);
-      setError(null);
+      setLoading(true)
+      setError(null)
 
-      const response = await axios.get<ApiResponse>(
-        `${API_BASE_URL}/characters`,
-        {
-          params: {
-            page: page,
-            limit: 9,
-          },
-        },
-      );
+      console.log(`Fetching ${category} page ${page} with search: ${search || "none"}`)
 
-      setCharacters(response.data.data);
-      setTotalPages(
-        Math.ceil(response.data.info.total / response.data.info.limit),
-      );
-      setTotalCharacters(response.data.info.total);
-      setCurrentPage(response.data.info.page);
+      const response = await enhancedStarWarsService.getEnhancedEntities(category, {
+        page,
+        limit: 9,
+        search: search || undefined,
+      })
+
+      if (response.success) {
+        console.log(`Received ${response.data.data.length} enhanced entities`)
+
+        // Log the first entity to see what data we have
+        if (response.data.data.length > 0) {
+          console.log("First entity data:", response.data.data[0])
+        }
+
+        setEntities(response.data.data)
+        setTotalPages(Math.ceil(response.data.info.total / response.data.info.limit))
+        setTotalEntities(response.data.info.total)
+        setCurrentPage(response.data.info.page)
+
+        // Update entity counts
+        setEntityCounts((prev) => ({
+          ...prev,
+          [category]: response.data.info.total,
+        }))
+      } else {
+        setError(response.error || `Failed to fetch ${category}`)
+      }
     } catch (err) {
-      setError("Failed to fetch characters. Please try again later.");
-      console.error("Error fetching characters:", err);
+      setError("An unexpected error occurred. Please try again later.")
+      console.error(`Error fetching ${category}:`, err)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
+
+  const checkSwapiStatus = async () => {
+    try {
+      setSwapiStatus("checking")
+      const available = await swapiService.checkAvailability()
+      setSwapiStatus(available ? "available" : "unavailable")
+    } catch (error) {
+      setSwapiStatus("unavailable")
+    }
+  }
 
   useEffect(() => {
-    fetchCharacters(currentPage);
-  }, [currentPage]);
+    checkSwapiStatus()
+  }, [])
+
+  useEffect(() => {
+    fetchEntities(1, selectedCategory, searchQuery)
+    setCurrentPage(1)
+  }, [selectedCategory, searchQuery])
+
+  useEffect(() => {
+    fetchEntities(currentPage, selectedCategory, searchQuery)
+  }, [currentPage])
 
   const handlePageChange = (page: number) => {
     if (page >= 1 && page <= totalPages) {
-      setCurrentPage(page);
+      setCurrentPage(page)
     }
-  };
+  }
 
-  const handleImageError = (
-    e: React.SyntheticEvent<HTMLImageElement, Event>,
-  ) => {
-    e.currentTarget.src = "/placeholder.svg?height=200&width=150";
-  };
+  const handleCategoryChange = (category: EntityType) => {
+    setSelectedCategory(category)
+    setCurrentPage(1)
+  }
 
-  const getGenderColor = (gender?: string) => {
-    if (!gender)
-      return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300";
+  const handleSearchChange = (query: string) => {
+    setSearchQuery(query)
+    setCurrentPage(1)
+  }
 
-    switch (gender.toLowerCase()) {
-      case "male":
-        return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300";
-      case "female":
-        return "bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-300";
-      default:
-        return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300";
-    }
-  };
+  const handleSearchClear = () => {
+    setSearchQuery("")
+    setCurrentPage(1)
+  }
 
-  const formatHeight = (height?: string) => {
-    if (!height || height === "unknown") return "Unknown";
-    return height.includes("cm") ? height : `${height} cm`;
-  };
+  const handleViewDetails = (entity: EnhancedEntity) => {
+    // TODO: Implement detail modal or navigation
+    console.log("View details for:", entity)
+  }
+
+  const handleRetrySwapiConnection = async () => {
+    setEnhancementInProgress(true)
+    enhancedStarWarsService.retrySwapiConnection()
+    enhancedStarWarsService.clearCache() // Clear cache to force re-enhancement
+    await checkSwapiStatus()
+    await fetchEntities(currentPage, selectedCategory, searchQuery)
+    setEnhancementInProgress(false)
+  }
+
+  const getCurrentCategoryLabel = () => {
+    return ENTITY_MAPPINGS.find((mapping) => mapping.databankType === selectedCategory)?.displayName || "Items"
+  }
+
+  const getEnhancedCount = () => {
+    return entities.filter((entity) => entity.swapiMatch).length
+  }
 
   if (error) {
     return (
@@ -138,9 +152,10 @@ export default function StarWarsBrowser() {
         <div className="relative z-10 container mx-auto px-4 py-8 flex items-center justify-center min-h-screen">
           <Card className="bg-slate-800/80 backdrop-blur-sm border-slate-700">
             <CardContent className="p-6 text-center">
+              <AlertTriangle className="w-12 h-12 text-red-400 mx-auto mb-4" />
               <p className="text-red-400 mb-4">{error}</p>
               <Button
-                onClick={() => fetchCharacters(currentPage)}
+                onClick={() => fetchEntities(currentPage, selectedCategory, searchQuery)}
                 className="bg-yellow-500 text-black hover:bg-yellow-400"
               >
                 Try Again
@@ -149,7 +164,7 @@ export default function StarWarsBrowser() {
           </Card>
         </div>
       </div>
-    );
+    )
   }
 
   return (
@@ -161,175 +176,206 @@ export default function StarWarsBrowser() {
         <div className="stars3"></div>
       </div>
 
-      {/* Content */}
-      <div className="relative z-10 container mx-auto px-4 py-8">
-        <div className="mb-8 text-center">
-          <h1 className="font-star-wars text-4xl font-bold text-yellow-500 mb-2 drop-shadow-lg">
-            Star Wars Characters
-          </h1>
-          <p className="text-yellow-500">Explore the galaxy far, far away...</p>
-          {totalCharacters > 0 && (
-            <p className="text-sm text-gray-400 mt-2">
-              {totalCharacters} characters in the databank
-            </p>
-          )}
+      {/* Layout with Sidebar */}
+      <div className="relative z-10 flex">
+        {/* Sidebar */}
+        <div
+          className={`fixed top-0 left-0 h-full z-20 transition-transform duration-300 ${sidebarCollapsed ? "translate-x-0" : "translate-x-0"}`}
+        >
+          <EnhancedStarWarsSidebar
+            selectedCategory={selectedCategory}
+            searchQuery={searchQuery}
+            onCategoryChange={handleCategoryChange}
+            onSearchChange={handleSearchChange}
+            onSearchClear={handleSearchClear}
+            isCollapsed={sidebarCollapsed}
+            entityCounts={entityCounts}
+          />
         </div>
 
-        {loading ? (
-          <div className="flex items-center justify-center min-h-[400px]">
-            <div className="text-center">
-              <Loader2 className="w-8 h-8 animate-spin text-yellow-500 mx-auto mb-4" />
-              <p className="text-white">Loading characters...</p>
+        {/* Mobile Sidebar Toggle */}
+        <Button
+          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+          className="fixed top-4 left-4 z-30 md:hidden bg-slate-800/80 backdrop-blur-sm text-white hover:bg-slate-700"
+          size="icon"
+        >
+          {sidebarCollapsed ? <Menu className="h-4 w-4" /> : <X className="h-4 w-4" />}
+        </Button>
+
+        {/* Main Content */}
+        <div className={`flex-1 transition-all duration-300 ${sidebarCollapsed ? "ml-16" : "ml-80"}`}>
+          <div className="container mx-auto px-4 py-8">
+            <div className="mb-8 text-center">
+              <h1 className="font-star-wars text-4xl font-bold text-yellow-500 mb-2 drop-shadow-lg">
+                Star Wars {getCurrentCategoryLabel()}
+              </h1>
+              <p className="text-yellow-500">Enhanced with SWAPI data • Explore the galaxy far, far away...</p>
+              {totalEntities > 0 && (
+                <div className="text-sm text-gray-400 mt-2 space-y-1">
+                  <p>
+                    {totalEntities} {getCurrentCategoryLabel().toLowerCase()} in the databank
+                  </p>
+                  {getEnhancedCount() > 0 && (
+                    <p className="text-green-400">{getEnhancedCount()} enhanced with SWAPI data</p>
+                  )}
+                </div>
+              )}
             </div>
-          </div>
-        ) : (
-          <>
-            {/* Character Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-              {characters.map((character) => (
-                <Card
-                  key={character._id}
-                  className="group hover:shadow-2xl hover:shadow-yellow-500/25 transition-all duration-300 hover:-translate-y-1 border-slate-700 bg-slate-800/80 backdrop-blur-sm"
+
+            {/* SWAPI Status */}
+            <div className="mb-6 flex justify-center">
+              <div className="bg-slate-800/80 backdrop-blur-sm rounded-lg p-3 flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <div
+                    className={`w-3 h-3 rounded-full ${
+                      swapiStatus === "available"
+                        ? "bg-green-500"
+                        : swapiStatus === "checking"
+                          ? "bg-yellow-500"
+                          : "bg-red-500"
+                    }`}
+                  ></div>
+                  <span className="text-sm text-gray-300">SWAPI Status:</span>
+                </div>
+                {swapiStatus === "available" && <span className="text-sm text-green-400">Available</span>}
+                {swapiStatus === "checking" && <span className="text-sm text-yellow-400">Checking...</span>}
+                {swapiStatus === "unavailable" && <span className="text-sm text-red-400">Unavailable</span>}
+
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleRetrySwapiConnection}
+                  disabled={enhancementInProgress || swapiStatus === "checking"}
+                  className="ml-2"
                 >
-                  <CardHeader className="pb-3">
-                    <div className="relative w-full h-48 mb-3 overflow-hidden rounded-md bg-slate-700">
-                      <Image
-                        src={
-                          character.image ||
-                          "/placeholder.svg?height=200&width=150"
-                        }
-                        alt={character.name}
-                        fill
-                        className="object-cover transition-transform duration-300 group-hover:scale-105"
-                        onError={handleImageError}
-                      />
-                    </div>
-                    <CardTitle className="text-xl font-bold text-center group-hover:text-yellow-400 transition-colors text-white">
-                      {character.name}
-                    </CardTitle>
-                  </CardHeader>
-
-                  <CardContent className="space-y-3">
-                    {character.height && (
-                      <div className="flex items-center gap-2 text-sm text-gray-300">
-                        <Ruler className="w-4 h-4" />
-                        <span>Height: {formatHeight(character.height)}</span>
-                      </div>
-                    )}
-
-                    {character.birth_year && (
-                      <div className="flex items-center gap-2 text-sm text-gray-300">
-                        <Calendar className="w-4 h-4" />
-                        <span>Born: {character.birth_year}</span>
-                      </div>
-                    )}
-
-                    {character.gender && (
-                      <div className="flex items-center gap-2">
-                        <User className="w-4 h-4 text-gray-300" />
-                        <Badge
-                          variant="secondary"
-                          className={getGenderColor(character.gender)}
-                        >
-                          {character.gender}
-                        </Badge>
-                      </div>
-                    )}
-
-                    {character.species && (
-                      <div className="flex items-center gap-2">
-                        <Badge
-                          variant="outline"
-                          className="text-gray-300 border-gray-600"
-                        >
-                          {character.species}
-                        </Badge>
-                      </div>
-                    )}
-
-                    {character.description && (
-                      <p className="text-xs text-gray-400 line-clamp-3">
-                        {character.description}
-                      </p>
-                    )}
-                  </CardContent>
-
-                  <CardFooter>
-                    <Button
-                      className="w-full group-hover:bg-yellow-500 group-hover:text-black transition-colors bg-slate-700 text-white border-slate-600 hover:bg-yellow-500 hover:text-black"
-                      variant="outline"
-                    >
-                      <Eye className="w-4 h-4 mr-2" />
-                      View Details
-                    </Button>
-                  </CardFooter>
-                </Card>
-              ))}
-            </div>
-
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="flex justify-center">
-                <Pagination>
-                  <PaginationContent className="bg-slate-800/80 backdrop-blur-sm rounded-lg p-2">
-                    <PaginationItem>
-                      <PaginationPrevious
-                        onClick={() => handlePageChange(currentPage - 1)}
-                        className={`text-white hover:bg-slate-700 ${currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}`}
-                      />
-                    </PaginationItem>
-
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                      (page) => {
-                        if (
-                          page === 1 ||
-                          page === totalPages ||
-                          (page >= currentPage - 1 && page <= currentPage + 1)
-                        ) {
-                          return (
-                            <PaginationItem key={page}>
-                              <PaginationLink
-                                onClick={() => handlePageChange(page)}
-                                isActive={currentPage === page}
-                                className={`cursor-pointer text-white hover:bg-slate-700 ${currentPage === page ? "bg-yellow-500 text-black hover:bg-yellow-400" : ""}`}
-                              >
-                                {page}
-                              </PaginationLink>
-                            </PaginationItem>
-                          );
-                        } else if (
-                          page === currentPage - 2 ||
-                          page === currentPage + 2
-                        ) {
-                          return (
-                            <PaginationItem key={page}>
-                              <PaginationEllipsis className="text-gray-400" />
-                            </PaginationItem>
-                          );
-                        }
-                        return null;
-                      },
-                    )}
-
-                    <PaginationItem>
-                      <PaginationNext
-                        onClick={() => handlePageChange(currentPage + 1)}
-                        className={`text-white hover:bg-slate-700 ${currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}`}
-                      />
-                    </PaginationItem>
-                  </PaginationContent>
-                </Pagination>
+                  {enhancementInProgress ? (
+                    <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                  ) : (
+                    <RefreshCw className="w-4 h-4 mr-1" />
+                  )}
+                  Refresh SWAPI
+                </Button>
               </div>
-            )}
-
-            {/* Results Info */}
-            <div className="text-center mt-6 text-sm text-gray-300">
-              Showing page {currentPage} of {totalPages} ({totalCharacters}{" "}
-              total characters)
             </div>
-          </>
-        )}
+
+            {loading ? (
+              <div className="flex items-center justify-center min-h-[400px]">
+                <div className="text-center">
+                  <Loader2 className="w-8 h-8 animate-spin text-yellow-500 mx-auto mb-4" />
+                  <p className="text-white">Loading and enhancing {getCurrentCategoryLabel().toLowerCase()}...</p>
+                  <div className="text-sm text-gray-400 mt-2 space-y-1">
+                    <p>Merging Databank and SWAPI data</p>
+                    {swapiStatus === "checking" && <p className="text-blue-400">Checking SWAPI availability...</p>}
+                    {swapiStatus === "available" && <p className="text-green-400">SWAPI enhancement active</p>}
+                    {swapiStatus === "unavailable" && (
+                      <div className="space-y-2">
+                        <p className="text-orange-400">SWAPI unavailable - using Databank only</p>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={handleRetrySwapiConnection}
+                          disabled={enhancementInProgress}
+                          className="text-xs"
+                        >
+                          Retry SWAPI Connection
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Entity Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                  {entities.length > 0 ? (
+                    entities.map((entity) => (
+                      <EnhancedEntityCard
+                        key={entity._id}
+                        entity={entity}
+                        entityType={selectedCategory}
+                        onViewDetails={handleViewDetails}
+                      />
+                    ))
+                  ) : (
+                    <div className="col-span-3 text-center py-12">
+                      <p className="text-gray-400">No {getCurrentCategoryLabel().toLowerCase()} found</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Debug Info */}
+                {entities.length > 0 && (
+                  <div className="mb-8 p-4 bg-slate-800/80 backdrop-blur-sm rounded-lg">
+                    <h3 className="text-sm font-medium text-yellow-500 mb-2">Debug Info:</h3>
+                    <p className="text-xs text-gray-400">
+                      First entity has {Object.keys(entities[0]).length} properties. SWAPI Match:{" "}
+                      {entities[0].swapiMatch ? "Yes" : "No"}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1">Properties: {Object.keys(entities[0]).join(", ")}</p>
+                  </div>
+                )}
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="flex justify-center">
+                    <Pagination>
+                      <PaginationContent className="bg-slate-800/80 backdrop-blur-sm rounded-lg p-2">
+                        <PaginationItem>
+                          <PaginationPrevious
+                            onClick={() => handlePageChange(currentPage - 1)}
+                            className={`text-white hover:bg-slate-700 ${currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}`}
+                          />
+                        </PaginationItem>
+
+                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                          if (
+                            page === 1 ||
+                            page === totalPages ||
+                            (page >= currentPage - 1 && page <= currentPage + 1)
+                          ) {
+                            return (
+                              <PaginationItem key={page}>
+                                <PaginationLink
+                                  onClick={() => handlePageChange(page)}
+                                  isActive={currentPage === page}
+                                  className={`cursor-pointer text-white hover:bg-slate-700 ${currentPage === page ? "bg-yellow-500 text-black hover:bg-yellow-400" : ""}`}
+                                >
+                                  {page}
+                                </PaginationLink>
+                              </PaginationItem>
+                            )
+                          } else if (page === currentPage - 2 || page === currentPage + 2) {
+                            return (
+                              <PaginationItem key={page}>
+                                <PaginationEllipsis className="text-gray-400" />
+                              </PaginationItem>
+                            )
+                          }
+                          return null
+                        })}
+
+                        <PaginationItem>
+                          <PaginationNext
+                            onClick={() => handlePageChange(currentPage + 1)}
+                            className={`text-white hover:bg-slate-700 ${currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}`}
+                          />
+                        </PaginationItem>
+                      </PaginationContent>
+                    </Pagination>
+                  </div>
+                )}
+
+                {/* Results Info */}
+                <div className="text-center mt-6 text-sm text-gray-300">
+                  Showing page {currentPage} of {totalPages} ({totalEntities} total{" "}
+                  {getCurrentCategoryLabel().toLowerCase()})
+                </div>
+              </>
+            )}
+          </div>
+        </div>
       </div>
     </div>
-  );
+  )
 }
