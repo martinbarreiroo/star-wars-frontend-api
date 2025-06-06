@@ -7,7 +7,7 @@ export interface EnhancedEntity extends BaseEntity {
   // Common SWAPI data
   films: string[]
 
-  // Character specific fields
+  // Character specific fields (from SWAPI people endpoint)
   height?: string
   mass?: string
   gender?: string
@@ -15,8 +15,9 @@ export interface EnhancedEntity extends BaseEntity {
   eye_color?: string
   hair_color?: string
   skin_color?: string
+  homeworld?: string
 
-  // Vehicle specific fields
+  // Vehicle specific fields (from SWAPI vehicles/starships endpoints)
   manufacturer?: string
   model?: string
   vehicle_class?: string
@@ -25,8 +26,15 @@ export interface EnhancedEntity extends BaseEntity {
   crew?: string
   passengers?: string
   cargo_capacity?: string
+  consumables?: string
+  max_atmosphering_speed?: string
+  cost_in_credits?: string
 
-  // Species specific fields
+  // Starship specific fields
+  hyperdrive_rating?: string
+  MGLT?: string
+
+  // Species specific fields (from SWAPI species endpoint)
   classification?: string
   designation?: string
   average_height?: string
@@ -36,7 +44,7 @@ export interface EnhancedEntity extends BaseEntity {
   hair_colors?: string
   eye_colors?: string
 
-  // Planet specific fields
+  // Planet specific fields (from SWAPI planets endpoint)
   climate?: string
   terrain?: string
   population?: string
@@ -44,6 +52,7 @@ export interface EnhancedEntity extends BaseEntity {
   rotation_period?: string
   orbital_period?: string
   gravity?: string
+  surface_water?: string
 
   // Metadata
   swapiMatch: boolean

@@ -28,7 +28,7 @@ swapiClient.interceptors.response.use(
   },
 )
 
-// Type definitions for SWAPI responses
+// Type definitions for SWAPI responses (matching exact API structure)
 export interface SwapiCharacter {
   name: string
   height: string
@@ -38,11 +38,11 @@ export interface SwapiCharacter {
   eye_color: string
   birth_year: string
   gender: string
-  homeworld: string
-  films: string[]
-  species: string[]
-  vehicles: string[]
-  starships: string[]
+  homeworld: string // URL
+  films: string[] // URLs
+  species: string[] // URLs
+  vehicles: string[] // URLs
+  starships: string[] // URLs
   created: string
   edited: string
   url: string
@@ -60,8 +60,8 @@ export interface SwapiVehicle {
   cargo_capacity: string
   consumables: string
   vehicle_class: string
-  pilots: string[]
-  films: string[]
+  pilots: string[] // URLs
+  films: string[] // URLs
   created: string
   edited: string
   url: string
@@ -81,8 +81,8 @@ export interface SwapiStarship {
   hyperdrive_rating: string
   MGLT: string
   starship_class: string
-  pilots: string[]
-  films: string[]
+  pilots: string[] // URLs
+  films: string[] // URLs
   created: string
   edited: string
   url: string
@@ -97,10 +97,10 @@ export interface SwapiSpecies {
   hair_colors: string
   eye_colors: string
   average_lifespan: string
-  homeworld: string
+  homeworld: string // URL
   language: string
-  people: string[]
-  films: string[]
+  people: string[] // URLs
+  films: string[] // URLs
   created: string
   edited: string
   url: string
@@ -116,8 +116,8 @@ export interface SwapiPlanet {
   terrain: string
   surface_water: string
   population: string
-  residents: string[]
-  films: string[]
+  residents: string[] // URLs
+  films: string[] // URLs
   created: string
   edited: string
   url: string
@@ -130,11 +130,11 @@ export interface SwapiFilm {
   director: string
   producer: string
   release_date: string
-  characters: string[]
-  planets: string[]
-  starships: string[]
-  vehicles: string[]
-  species: string[]
+  characters: string[] // URLs
+  planets: string[] // URLs
+  starships: string[] // URLs
+  vehicles: string[] // URLs
+  species: string[] // URLs
   created: string
   edited: string
   url: string
@@ -147,7 +147,7 @@ export interface SwapiSearchResponse<T> {
   results: T[]
 }
 
-// Map of film URLs to titles for caching
+// Map of film URLs to titles for caching (based on SWAPI structure)
 const FILM_TITLES: Record<string, string> = {
   "https://swapi.dev/api/films/1/": "A New Hope",
   "https://swapi.dev/api/films/2/": "The Empire Strikes Back",
@@ -159,6 +159,7 @@ const FILM_TITLES: Record<string, string> = {
 
 class SwapiService {
   private filmCache = new Map<string, string>()
+  private planetCache = new Map<string, string>()
   private isOnline = true
   private lastOnlineCheck = 0
   private readonly ONLINE_CHECK_INTERVAL = 30000 // 30 seconds
@@ -212,12 +213,18 @@ class SwapiService {
       const response = await this.makeRequest<SwapiSearchResponse<SwapiCharacter>>("/people/", { search: name })
 
       if (!response || !response.results || response.results.length === 0) {
+        console.log(`No SWAPI results found for character: ${name}`)
         return null
       }
 
+      console.log(`Found ${response.results.length} SWAPI character results for: ${name}`)
+
       // Find exact or close match
       const exactMatch = response.results.find((char) => char.name.toLowerCase() === name.toLowerCase())
-      if (exactMatch) return exactMatch
+      if (exactMatch) {
+        console.log(`Exact SWAPI match found: ${exactMatch.name}`)
+        return exactMatch
+      }
 
       // If no exact match, try partial match
       const partialMatch = response.results.find(
@@ -225,7 +232,14 @@ class SwapiService {
           char.name.toLowerCase().includes(name.toLowerCase()) || name.toLowerCase().includes(char.name.toLowerCase()),
       )
 
-      return partialMatch || response.results[0] // Return first result if no match found
+      if (partialMatch) {
+        console.log(`Partial SWAPI match found: ${partialMatch.name} for search: ${name}`)
+        return partialMatch
+      }
+
+      // Return first result if no good match found
+      console.log(`Using first SWAPI result: ${response.results[0].name} for search: ${name}`)
+      return response.results[0]
     } catch (error) {
       console.error(`Error searching SWAPI characters for "${name}":`, error)
       return null
@@ -238,11 +252,17 @@ class SwapiService {
       const response = await this.makeRequest<SwapiSearchResponse<SwapiVehicle>>("/vehicles/", { search: name })
 
       if (!response || !response.results || response.results.length === 0) {
+        console.log(`No SWAPI vehicle results found for: ${name}`)
         return null
       }
 
+      console.log(`Found ${response.results.length} SWAPI vehicle results for: ${name}`)
+
       const exactMatch = response.results.find((vehicle) => vehicle.name.toLowerCase() === name.toLowerCase())
-      if (exactMatch) return exactMatch
+      if (exactMatch) {
+        console.log(`Exact SWAPI vehicle match found: ${exactMatch.name}`)
+        return exactMatch
+      }
 
       const partialMatch = response.results.find(
         (vehicle) =>
@@ -250,7 +270,12 @@ class SwapiService {
           name.toLowerCase().includes(vehicle.name.toLowerCase()),
       )
 
-      return partialMatch || response.results[0]
+      if (partialMatch) {
+        console.log(`Partial SWAPI vehicle match found: ${partialMatch.name} for search: ${name}`)
+        return partialMatch
+      }
+
+      return response.results[0]
     } catch (error) {
       console.error(`Error searching SWAPI vehicles for "${name}":`, error)
       return null
@@ -263,18 +288,29 @@ class SwapiService {
       const response = await this.makeRequest<SwapiSearchResponse<SwapiStarship>>("/starships/", { search: name })
 
       if (!response || !response.results || response.results.length === 0) {
+        console.log(`No SWAPI starship results found for: ${name}`)
         return null
       }
 
+      console.log(`Found ${response.results.length} SWAPI starship results for: ${name}`)
+
       const exactMatch = response.results.find((ship) => ship.name.toLowerCase() === name.toLowerCase())
-      if (exactMatch) return exactMatch
+      if (exactMatch) {
+        console.log(`Exact SWAPI starship match found: ${exactMatch.name}`)
+        return exactMatch
+      }
 
       const partialMatch = response.results.find(
         (ship) =>
           ship.name.toLowerCase().includes(name.toLowerCase()) || name.toLowerCase().includes(ship.name.toLowerCase()),
       )
 
-      return partialMatch || response.results[0]
+      if (partialMatch) {
+        console.log(`Partial SWAPI starship match found: ${partialMatch.name} for search: ${name}`)
+        return partialMatch
+      }
+
+      return response.results[0]
     } catch (error) {
       console.error(`Error searching SWAPI starships for "${name}":`, error)
       return null
@@ -287,11 +323,17 @@ class SwapiService {
       const response = await this.makeRequest<SwapiSearchResponse<SwapiSpecies>>("/species/", { search: name })
 
       if (!response || !response.results || response.results.length === 0) {
+        console.log(`No SWAPI species results found for: ${name}`)
         return null
       }
 
+      console.log(`Found ${response.results.length} SWAPI species results for: ${name}`)
+
       const exactMatch = response.results.find((species) => species.name.toLowerCase() === name.toLowerCase())
-      if (exactMatch) return exactMatch
+      if (exactMatch) {
+        console.log(`Exact SWAPI species match found: ${exactMatch.name}`)
+        return exactMatch
+      }
 
       const partialMatch = response.results.find(
         (species) =>
@@ -299,7 +341,12 @@ class SwapiService {
           name.toLowerCase().includes(species.name.toLowerCase()),
       )
 
-      return partialMatch || response.results[0]
+      if (partialMatch) {
+        console.log(`Partial SWAPI species match found: ${partialMatch.name} for search: ${name}`)
+        return partialMatch
+      }
+
+      return response.results[0]
     } catch (error) {
       console.error(`Error searching SWAPI species for "${name}":`, error)
       return null
@@ -312,11 +359,17 @@ class SwapiService {
       const response = await this.makeRequest<SwapiSearchResponse<SwapiPlanet>>("/planets/", { search: name })
 
       if (!response || !response.results || response.results.length === 0) {
+        console.log(`No SWAPI planet results found for: ${name}`)
         return null
       }
 
+      console.log(`Found ${response.results.length} SWAPI planet results for: ${name}`)
+
       const exactMatch = response.results.find((planet) => planet.name.toLowerCase() === name.toLowerCase())
-      if (exactMatch) return exactMatch
+      if (exactMatch) {
+        console.log(`Exact SWAPI planet match found: ${exactMatch.name}`)
+        return exactMatch
+      }
 
       const partialMatch = response.results.find(
         (planet) =>
@@ -324,7 +377,12 @@ class SwapiService {
           name.toLowerCase().includes(planet.name.toLowerCase()),
       )
 
-      return partialMatch || response.results[0]
+      if (partialMatch) {
+        console.log(`Partial SWAPI planet match found: ${partialMatch.name} for search: ${name}`)
+        return partialMatch
+      }
+
+      return response.results[0]
     } catch (error) {
       console.error(`Error searching SWAPI planets for "${name}":`, error)
       return null
@@ -363,6 +421,35 @@ class SwapiService {
     } catch (error) {
       console.error(`Error fetching film from ${filmUrl}:`, error)
       return "Unknown Film"
+    }
+  }
+
+  async getPlanetName(planetUrl: string): Promise<string> {
+    // Check cache first
+    if (this.planetCache.has(planetUrl)) {
+      return this.planetCache.get(planetUrl)!
+    }
+
+    try {
+      // Extract the planet ID from the URL
+      const planetId = planetUrl.split("/").filter(Boolean).pop()
+
+      if (!planetId) {
+        console.warn(`Invalid planet URL: ${planetUrl}`)
+        return "Unknown Planet"
+      }
+
+      const response = await this.makeRequest<SwapiPlanet>(`/planets/${planetId}/`)
+
+      if (response?.name) {
+        this.planetCache.set(planetUrl, response.name)
+        return response.name
+      }
+
+      return "Unknown Planet"
+    } catch (error) {
+      console.error(`Error fetching planet from ${planetUrl}:`, error)
+      return "Unknown Planet"
     }
   }
 
