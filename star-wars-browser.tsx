@@ -2,16 +2,8 @@
 
 import type React from "react";
 import { useState, useEffect } from "react";
-import axios from "axios";
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Pagination,
   PaginationContent,
@@ -21,79 +13,65 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
-import { Eye, User, Calendar, Ruler, Loader2 } from "lucide-react";
-import Image from "next/image";
-
-// Types based on the API structure
-interface Character {
-  _id: string;
-  name: string;
-  description: string;
-  image: string;
-  affiliations?: string[];
-  species?: string;
-  gender?: string;
-  height?: string;
-  mass?: string;
-  hair_color?: string;
-  eye_color?: string;
-  skin_color?: string;
-  birth_year?: string;
-  homeworld?: string;
-}
-
-interface ApiResponse {
-  info: {
-    total: number;
-    page: number;
-    limit: number;
-    next: string | null;
-    prev: string | null;
-  };
-  data: Character[];
-}
-
-const API_BASE_URL = "https://starwars-databank-server.vercel.app/api/v1";
+import { Loader2, Menu, X } from "lucide-react";
+import { starWarsServices } from "@/services/starWarsService";
+import { BaseEntity, EntityType, ENTITY_CATEGORIES } from "@/services/types";
+import StarWarsSidebar from "@/components/StarWarsSidebar";
+import EntityCard from "@/components/EntityCard";
 
 export default function StarWarsBrowser() {
-  const [characters, setCharacters] = useState<Character[]>([]);
+  const [entities, setEntities] = useState<BaseEntity[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [totalCharacters, setTotalCharacters] = useState(0);
+  const [totalEntities, setTotalEntities] = useState(0);
+  const [selectedCategory, setSelectedCategory] =
+    useState<EntityType>("characters");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  const fetchCharacters = async (page: number) => {
+  const fetchEntities = async (
+    page: number,
+    category: EntityType,
+    search?: string,
+  ) => {
     try {
       setLoading(true);
       setError(null);
 
-      const response = await axios.get<ApiResponse>(
-        `${API_BASE_URL}/characters`,
-        {
-          params: {
-            page: page,
-            limit: 9,
-          },
-        },
-      );
+      const service = starWarsServices[category];
+      const response = await service.getEntities({
+        page,
+        limit: 9,
+        search: search || undefined,
+      });
 
-      setCharacters(response.data.data);
-      setTotalPages(
-        Math.ceil(response.data.info.total / response.data.info.limit),
-      );
-      setTotalCharacters(response.data.info.total);
-      setCurrentPage(response.data.info.page);
+      if (response.success) {
+        setEntities(response.data.data);
+        setTotalPages(
+          Math.ceil(response.data.info.total / response.data.info.limit),
+        );
+        setTotalEntities(response.data.info.total);
+        setCurrentPage(response.data.info.page);
+      } else {
+        setError(response.error || `Failed to fetch ${category}`);
+      }
     } catch (err) {
-      setError("Failed to fetch characters. Please try again later.");
-      console.error("Error fetching characters:", err);
+      setError("An unexpected error occurred. Please try again later.");
+      console.error(`Error fetching ${category}:`, err);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchCharacters(currentPage);
+    fetchEntities(1, selectedCategory, searchQuery);
+    setCurrentPage(1);
+  }, [selectedCategory, searchQuery]);
+
+  useEffect(() => {
+    fetchEntities(currentPage, selectedCategory, searchQuery);
   }, [currentPage]);
 
   const handlePageChange = (page: number) => {
@@ -102,29 +80,31 @@ export default function StarWarsBrowser() {
     }
   };
 
-  const handleImageError = (
-    e: React.SyntheticEvent<HTMLImageElement, Event>,
-  ) => {
-    e.currentTarget.src = "/placeholder.svg?height=200&width=150";
+  const handleCategoryChange = (category: EntityType) => {
+    setSelectedCategory(category);
+    setCurrentPage(1);
   };
 
-  const getGenderColor = (gender?: string) => {
-    if (!gender)
-      return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300";
-
-    switch (gender.toLowerCase()) {
-      case "male":
-        return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300";
-      case "female":
-        return "bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-300";
-      default:
-        return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300";
-    }
+  const handleSearchChange = (query: string) => {
+    setSearchQuery(query);
+    setCurrentPage(1);
   };
 
-  const formatHeight = (height?: string) => {
-    if (!height || height === "unknown") return "Unknown";
-    return height.includes("cm") ? height : `${height} cm`;
+  const handleSearchClear = () => {
+    setSearchQuery("");
+    setCurrentPage(1);
+  };
+
+  const handleViewDetails = (entity: BaseEntity) => {
+    // TODO: Implement detail modal or navigation
+    console.log("View details for:", entity);
+  };
+
+  const getCurrentCategoryLabel = () => {
+    return (
+      ENTITY_CATEGORIES.find((cat) => cat.type === selectedCategory)?.label ||
+      "Items"
+    );
   };
 
   if (error) {
@@ -140,7 +120,9 @@ export default function StarWarsBrowser() {
             <CardContent className="p-6 text-center">
               <p className="text-red-400 mb-4">{error}</p>
               <Button
-                onClick={() => fetchCharacters(currentPage)}
+                onClick={() =>
+                  fetchEntities(currentPage, selectedCategory, searchQuery)
+                }
                 className="bg-yellow-500 text-black hover:bg-yellow-400"
               >
                 Try Again
@@ -161,174 +143,143 @@ export default function StarWarsBrowser() {
         <div className="stars3"></div>
       </div>
 
-      {/* Content */}
-      <div className="relative z-10 container mx-auto px-4 py-8">
-        <div className="mb-8 text-center">
-          <h1 className="font-star-wars text-4xl font-bold text-yellow-500 mb-2 drop-shadow-lg">
-            Star Wars Characters
-          </h1>
-          <p className="text-yellow-500">Explore the galaxy far, far away...</p>
-          {totalCharacters > 0 && (
-            <p className="text-sm text-gray-400 mt-2">
-              {totalCharacters} characters in the databank
-            </p>
-          )}
+      {/* Layout with Sidebar */}
+      <div className="relative z-10 flex">
+        {/* Sidebar */}
+        <div
+          className={`fixed top-0 left-0 h-full z-20 transition-transform duration-300 ${sidebarCollapsed ? "translate-x-0" : "translate-x-0"}`}
+        >
+          <StarWarsSidebar
+            selectedCategory={selectedCategory}
+            searchQuery={searchQuery}
+            onCategoryChange={handleCategoryChange}
+            onSearchChange={handleSearchChange}
+            onSearchClear={handleSearchClear}
+            isCollapsed={sidebarCollapsed}
+          />
         </div>
 
-        {loading ? (
-          <div className="flex items-center justify-center min-h-[400px]">
-            <div className="text-center">
-              <Loader2 className="w-8 h-8 animate-spin text-yellow-500 mx-auto mb-4" />
-              <p className="text-white">Loading characters...</p>
-            </div>
-          </div>
-        ) : (
-          <>
-            {/* Character Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-              {characters.map((character) => (
-                <Card
-                  key={character._id}
-                  className="group hover:shadow-2xl hover:shadow-yellow-500/25 transition-all duration-300 hover:-translate-y-1 border-slate-700 bg-slate-800/80 backdrop-blur-sm"
-                >
-                  <CardHeader className="pb-3">
-                    <div className="relative w-full h-48 mb-3 overflow-hidden rounded-md bg-slate-700">
-                      <Image
-                        src={
-                          character.image ||
-                          "/placeholder.svg?height=200&width=150"
-                        }
-                        alt={character.name}
-                        fill
-                        className="object-cover transition-transform duration-300 group-hover:scale-105"
-                        onError={handleImageError}
-                      />
-                    </div>
-                    <CardTitle className="text-xl font-bold text-center group-hover:text-yellow-400 transition-colors text-white">
-                      {character.name}
-                    </CardTitle>
-                  </CardHeader>
+        {/* Mobile Sidebar Toggle */}
+        <Button
+          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+          className="fixed top-4 left-4 z-30 md:hidden bg-slate-800/80 backdrop-blur-sm text-white hover:bg-slate-700"
+          size="icon"
+        >
+          {sidebarCollapsed ? (
+            <Menu className="h-4 w-4" />
+          ) : (
+            <X className="h-4 w-4" />
+          )}
+        </Button>
 
-                  <CardContent className="space-y-3">
-                    {character.height && (
-                      <div className="flex items-center gap-2 text-sm text-gray-300">
-                        <Ruler className="w-4 h-4" />
-                        <span>Height: {formatHeight(character.height)}</span>
-                      </div>
-                    )}
-
-                    {character.birth_year && (
-                      <div className="flex items-center gap-2 text-sm text-gray-300">
-                        <Calendar className="w-4 h-4" />
-                        <span>Born: {character.birth_year}</span>
-                      </div>
-                    )}
-
-                    {character.gender && (
-                      <div className="flex items-center gap-2">
-                        <User className="w-4 h-4 text-gray-300" />
-                        <Badge
-                          variant="secondary"
-                          className={getGenderColor(character.gender)}
-                        >
-                          {character.gender}
-                        </Badge>
-                      </div>
-                    )}
-
-                    {character.species && (
-                      <div className="flex items-center gap-2">
-                        <Badge
-                          variant="outline"
-                          className="text-gray-300 border-gray-600"
-                        >
-                          {character.species}
-                        </Badge>
-                      </div>
-                    )}
-
-                    {character.description && (
-                      <p className="text-xs text-gray-400 line-clamp-3">
-                        {character.description}
-                      </p>
-                    )}
-                  </CardContent>
-
-                  <CardFooter>
-                    <Button
-                      className="w-full group-hover:bg-yellow-500 group-hover:text-black transition-colors bg-slate-700 text-white border-slate-600 hover:bg-yellow-500 hover:text-black"
-                      variant="outline"
-                    >
-                      <Eye className="w-4 h-4 mr-2" />
-                      View Details
-                    </Button>
-                  </CardFooter>
-                </Card>
-              ))}
+        {/* Main Content */}
+        <div
+          className={`flex-1 transition-all duration-300 ${sidebarCollapsed ? "ml-16" : "ml-80"}`}
+        >
+          <div className="container mx-auto px-4 py-8">
+            <div className="mb-8 text-center">
+              <h1 className="font-star-wars text-4xl font-bold text-yellow-500 mb-2 drop-shadow-lg">
+                Star Wars {getCurrentCategoryLabel()}
+              </h1>
+              <p className="text-yellow-500">
+                Explore the galaxy far, far away...
+              </p>
+              {totalEntities > 0 && (
+                <p className="text-sm text-gray-400 mt-2">
+                  {totalEntities} {getCurrentCategoryLabel().toLowerCase()} in
+                  the databank
+                </p>
+              )}
             </div>
 
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="flex justify-center">
-                <Pagination>
-                  <PaginationContent className="bg-slate-800/80 backdrop-blur-sm rounded-lg p-2">
-                    <PaginationItem>
-                      <PaginationPrevious
-                        onClick={() => handlePageChange(currentPage - 1)}
-                        className={`text-white hover:bg-slate-700 ${currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}`}
-                      />
-                    </PaginationItem>
-
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                      (page) => {
-                        if (
-                          page === 1 ||
-                          page === totalPages ||
-                          (page >= currentPage - 1 && page <= currentPage + 1)
-                        ) {
-                          return (
-                            <PaginationItem key={page}>
-                              <PaginationLink
-                                onClick={() => handlePageChange(page)}
-                                isActive={currentPage === page}
-                                className={`cursor-pointer text-white hover:bg-slate-700 ${currentPage === page ? "bg-yellow-500 text-black hover:bg-yellow-400" : ""}`}
-                              >
-                                {page}
-                              </PaginationLink>
-                            </PaginationItem>
-                          );
-                        } else if (
-                          page === currentPage - 2 ||
-                          page === currentPage + 2
-                        ) {
-                          return (
-                            <PaginationItem key={page}>
-                              <PaginationEllipsis className="text-gray-400" />
-                            </PaginationItem>
-                          );
-                        }
-                        return null;
-                      },
-                    )}
-
-                    <PaginationItem>
-                      <PaginationNext
-                        onClick={() => handlePageChange(currentPage + 1)}
-                        className={`text-white hover:bg-slate-700 ${currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}`}
-                      />
-                    </PaginationItem>
-                  </PaginationContent>
-                </Pagination>
+            {loading ? (
+              <div className="flex items-center justify-center min-h-[400px]">
+                <div className="text-center">
+                  <Loader2 className="w-8 h-8 animate-spin text-yellow-500 mx-auto mb-4" />
+                  <p className="text-white">
+                    Loading {getCurrentCategoryLabel().toLowerCase()}...
+                  </p>
+                </div>
               </div>
-            )}
+            ) : (
+              <>
+                {/* Entity Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                  {entities.map((entity) => (
+                    <EntityCard
+                      key={entity._id}
+                      entity={entity}
+                      entityType={selectedCategory}
+                      onViewDetails={handleViewDetails}
+                    />
+                  ))}
+                </div>
 
-            {/* Results Info */}
-            <div className="text-center mt-6 text-sm text-gray-300">
-              Showing page {currentPage} of {totalPages} ({totalCharacters}{" "}
-              total characters)
-            </div>
-          </>
-        )}
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="flex justify-center">
+                    <Pagination>
+                      <PaginationContent className="bg-slate-800/80 backdrop-blur-sm rounded-lg p-2">
+                        <PaginationItem>
+                          <PaginationPrevious
+                            onClick={() => handlePageChange(currentPage - 1)}
+                            className={`text-white hover:bg-slate-700 ${currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}`}
+                          />
+                        </PaginationItem>
+
+                        {Array.from(
+                          { length: totalPages },
+                          (_, i) => i + 1,
+                        ).map((page) => {
+                          if (
+                            page === 1 ||
+                            page === totalPages ||
+                            (page >= currentPage - 1 && page <= currentPage + 1)
+                          ) {
+                            return (
+                              <PaginationItem key={page}>
+                                <PaginationLink
+                                  onClick={() => handlePageChange(page)}
+                                  isActive={currentPage === page}
+                                  className={`cursor-pointer text-white hover:bg-slate-700 ${currentPage === page ? "bg-yellow-500 text-black hover:bg-yellow-400" : ""}`}
+                                >
+                                  {page}
+                                </PaginationLink>
+                              </PaginationItem>
+                            );
+                          } else if (
+                            page === currentPage - 2 ||
+                            page === currentPage + 2
+                          ) {
+                            return (
+                              <PaginationItem key={page}>
+                                <PaginationEllipsis className="text-gray-400" />
+                              </PaginationItem>
+                            );
+                          }
+                          return null;
+                        })}
+
+                        <PaginationItem>
+                          <PaginationNext
+                            onClick={() => handlePageChange(currentPage + 1)}
+                            className={`text-white hover:bg-slate-700 ${currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}`}
+                          />
+                        </PaginationItem>
+                      </PaginationContent>
+                    </Pagination>
+                  </div>
+                )}
+
+                {/* Results Info */}
+                <div className="text-center mt-6 text-sm text-gray-300">
+                  Showing page {currentPage} of {totalPages} ({totalEntities}{" "}
+                  total {getCurrentCategoryLabel().toLowerCase()})
+                </div>
+              </>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
