@@ -17,6 +17,7 @@ import { type EnhancedEntity, ENTITY_MAPPINGS } from "@/services/enhancedTypes"
 import type { EntityType } from "@/services/types"
 import EnhancedStarWarsSidebar from "@/components/EnhancedStarWarsSidebar"
 import EnhancedEntityCard from "@/components/EnhancedEntityCard"
+import { swapiService } from "@/services/swapiService"
 
 export default function StarWarsBrowser() {
   const [entities, setEntities] = useState<EnhancedEntity[]>([])
@@ -29,6 +30,7 @@ export default function StarWarsBrowser() {
   const [searchQuery, setSearchQuery] = useState("")
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [entityCounts, setEntityCounts] = useState<Record<EntityType, number>>({})
+  const [swapiStatus, setSwapiStatus] = useState<"checking" | "available" | "unavailable">("checking")
 
   const fetchEntities = async (page: number, category: EntityType, search?: string) => {
     try {
@@ -62,6 +64,20 @@ export default function StarWarsBrowser() {
       setLoading(false)
     }
   }
+
+  const checkSwapiStatus = async () => {
+    try {
+      setSwapiStatus("checking")
+      const available = await swapiService.checkAvailability()
+      setSwapiStatus(available ? "available" : "unavailable")
+    } catch (error) {
+      setSwapiStatus("unavailable")
+    }
+  }
+
+  useEffect(() => {
+    checkSwapiStatus()
+  }, [])
 
   useEffect(() => {
     fetchEntities(1, selectedCategory, searchQuery)
@@ -191,7 +207,27 @@ export default function StarWarsBrowser() {
                 <div className="text-center">
                   <Loader2 className="w-8 h-8 animate-spin text-yellow-500 mx-auto mb-4" />
                   <p className="text-white">Loading and enhancing {getCurrentCategoryLabel().toLowerCase()}...</p>
-                  <p className="text-sm text-gray-400 mt-2">Merging Databank and SWAPI data</p>
+                  <div className="text-sm text-gray-400 mt-2 space-y-1">
+                    <p>Merging Databank and SWAPI data</p>
+                    {swapiStatus === "checking" && <p className="text-blue-400">Checking SWAPI availability...</p>}
+                    {swapiStatus === "available" && <p className="text-green-400">SWAPI enhancement active</p>}
+                    {swapiStatus === "unavailable" && (
+                      <div className="space-y-2">
+                        <p className="text-orange-400">SWAPI unavailable - using Databank only</p>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            enhancedStarWarsService.retrySwapiConnection()
+                            checkSwapiStatus()
+                          }}
+                          className="text-xs"
+                        >
+                          Retry SWAPI Connection
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             ) : (
