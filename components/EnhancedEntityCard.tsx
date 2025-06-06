@@ -5,7 +5,23 @@ import type React from "react"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Eye, Calendar, Ruler, User, MapPin, Building, Rocket, Film, Weight, Globe, Users } from "lucide-react"
+import {
+  Eye,
+  Calendar,
+  Ruler,
+  User,
+  MapPin,
+  Building,
+  Rocket,
+  Film,
+  Weight,
+  Globe,
+  Users,
+  Thermometer,
+  Mountain,
+  Compass,
+  PenToolIcon as Tool,
+} from "lucide-react"
 import Image from "next/image"
 import type { EnhancedEntity } from "@/services/enhancedTypes"
 import type { EntityType } from "@/services/types"
@@ -47,7 +63,6 @@ export default function EnhancedEntityCard({ entity, entityType, onViewDetails }
 
     switch (entityType) {
       case "characters":
-      case "droids":
         if (entity.height && entity.height !== "unknown") {
           infoItems.push(
             <div key="height" className="flex items-center gap-2 text-sm text-gray-300">
@@ -74,6 +89,42 @@ export default function EnhancedEntityCard({ entity, entityType, onViewDetails }
             </div>,
           )
         }
+        if (entity.birth_year && entity.birth_year !== "unknown") {
+          infoItems.push(
+            <div key="birth_year" className="flex items-center gap-2 text-sm text-gray-300">
+              <Calendar className="w-4 h-4" />
+              <span>Born: {entity.birth_year}</span>
+            </div>,
+          )
+        }
+        break
+
+      case "droids":
+        if (entity.height && entity.height !== "unknown") {
+          infoItems.push(
+            <div key="height" className="flex items-center gap-2 text-sm text-gray-300">
+              <Ruler className="w-4 h-4" />
+              <span>Height: {entity.height}cm</span>
+            </div>,
+          )
+        }
+        if (entity.model) {
+          infoItems.push(
+            <div key="model" className="flex items-center gap-2 text-sm text-gray-300">
+              <Tool className="w-4 h-4" />
+              <span>Model: {entity.model}</span>
+            </div>,
+          )
+        }
+        if (entity.manufacturer) {
+          infoItems.push(
+            <div key="manufacturer" className="flex items-center gap-2">
+              <Badge variant="outline" className="text-purple-400 border-purple-400">
+                {entity.manufacturer}
+              </Badge>
+            </div>,
+          )
+        }
         break
 
       case "vehicles":
@@ -94,12 +145,20 @@ export default function EnhancedEntityCard({ entity, entityType, onViewDetails }
             </div>,
           )
         }
-        if (entity.vehicle_class) {
+        if (entity.vehicle_class || entity.starship_class) {
           infoItems.push(
             <div key="class" className="flex items-center gap-2">
               <Badge variant="outline" className="text-purple-400 border-purple-400">
-                {entity.vehicle_class}
+                {entity.vehicle_class || entity.starship_class}
               </Badge>
+            </div>,
+          )
+        }
+        if (entity.length) {
+          infoItems.push(
+            <div key="length" className="flex items-center gap-2 text-sm text-gray-300">
+              <Ruler className="w-4 h-4" />
+              <span>Length: {entity.length}m</span>
             </div>,
           )
         }
@@ -124,7 +183,7 @@ export default function EnhancedEntityCard({ entity, entityType, onViewDetails }
             </div>,
           )
         }
-        if (entity.language) {
+        if (entity.language && entity.language !== "unknown") {
           infoItems.push(
             <div key="language" className="flex items-center gap-2 text-sm text-gray-300">
               <Globe className="w-4 h-4" />
@@ -132,22 +191,31 @@ export default function EnhancedEntityCard({ entity, entityType, onViewDetails }
             </div>,
           )
         }
+        if (entity.average_height && entity.average_height !== "unknown") {
+          infoItems.push(
+            <div key="height" className="flex items-center gap-2 text-sm text-gray-300">
+              <Ruler className="w-4 h-4" />
+              <span>Avg. Height: {entity.average_height}cm</span>
+            </div>,
+          )
+        }
         break
 
       case "locations":
-        if (entity.climate) {
+        if (entity.climate && entity.climate !== "unknown") {
           infoItems.push(
             <div key="climate" className="flex items-center gap-2">
               <Badge variant="outline" className="text-orange-400 border-orange-400">
+                <Thermometer className="w-3 h-3 mr-1" />
                 {entity.climate}
               </Badge>
             </div>,
           )
         }
-        if (entity.terrain) {
+        if (entity.terrain && entity.terrain !== "unknown") {
           infoItems.push(
             <div key="terrain" className="flex items-center gap-2 text-sm text-gray-300">
-              <MapPin className="w-4 h-4" />
+              <Mountain className="w-4 h-4" />
               <span>Terrain: {entity.terrain}</span>
             </div>,
           )
@@ -156,7 +224,15 @@ export default function EnhancedEntityCard({ entity, entityType, onViewDetails }
           infoItems.push(
             <div key="population" className="flex items-center gap-2 text-sm text-gray-300">
               <Users className="w-4 h-4" />
-              <span>Population: {entity.population}</span>
+              <span>Population: {formatLargeNumber(entity.population)}</span>
+            </div>,
+          )
+        }
+        if (entity.diameter && entity.diameter !== "unknown") {
+          infoItems.push(
+            <div key="diameter" className="flex items-center gap-2 text-sm text-gray-300">
+              <Compass className="w-4 h-4" />
+              <span>Diameter: {formatLargeNumber(entity.diameter)}km</span>
             </div>,
           )
         }
@@ -168,6 +244,21 @@ export default function EnhancedEntityCard({ entity, entityType, onViewDetails }
     }
 
     return infoItems
+  }
+
+  // Helper function to format large numbers
+  const formatLargeNumber = (numStr: string): string => {
+    const num = Number.parseInt(numStr, 10)
+    if (isNaN(num)) return numStr
+
+    if (num >= 1000000000) {
+      return (num / 1000000000).toFixed(1) + "B"
+    } else if (num >= 1000000) {
+      return (num / 1000000).toFixed(1) + "M"
+    } else if (num >= 1000) {
+      return (num / 1000).toFixed(1) + "K"
+    }
+    return numStr
   }
 
   return (

@@ -63,13 +63,16 @@ class EnhancedStarWarsService {
 
       switch (entityType) {
         case "characters":
-        case "droids":
           try {
             swapiData = await swapiService.searchCharacters(entity.name)
             if (swapiData) {
               enhancedEntity.height = swapiData.height !== "unknown" ? swapiData.height : undefined
               enhancedEntity.mass = swapiData.mass !== "unknown" ? swapiData.mass : undefined
               enhancedEntity.gender = swapiData.gender !== "n/a" ? swapiData.gender : undefined
+              enhancedEntity.birth_year = swapiData.birth_year !== "unknown" ? swapiData.birth_year : undefined
+              enhancedEntity.eye_color = swapiData.eye_color !== "unknown" ? swapiData.eye_color : undefined
+              enhancedEntity.hair_color = swapiData.hair_color !== "unknown" ? swapiData.hair_color : undefined
+              enhancedEntity.skin_color = swapiData.skin_color !== "unknown" ? swapiData.skin_color : undefined
 
               if (swapiData.films && swapiData.films.length > 0) {
                 enhancedEntity.films = await swapiService.resolveFilmTitles(swapiData.films)
@@ -79,6 +82,26 @@ class EnhancedStarWarsService {
             }
           } catch (error) {
             console.warn(`Failed to enhance character ${entity.name}:`, error)
+          }
+          break
+
+        case "droids":
+          try {
+            // Droids are also in the people endpoint in SWAPI
+            swapiData = await swapiService.searchCharacters(entity.name)
+            if (swapiData) {
+              enhancedEntity.height = swapiData.height !== "unknown" ? swapiData.height : undefined
+              enhancedEntity.model = entity.name // Use name as model for droids
+              enhancedEntity.manufacturer = "Unknown Manufacturer" // Default value
+
+              if (swapiData.films && swapiData.films.length > 0) {
+                enhancedEntity.films = await swapiService.resolveFilmTitles(swapiData.films)
+              }
+
+              enhancedEntity.swapiMatch = true
+            }
+          } catch (error) {
+            console.warn(`Failed to enhance droid ${entity.name}:`, error)
           }
           break
 
@@ -94,6 +117,11 @@ class EnhancedStarWarsService {
               enhancedEntity.model = swapiData.model !== "unknown" ? swapiData.model : undefined
               enhancedEntity.manufacturer = swapiData.manufacturer !== "unknown" ? swapiData.manufacturer : undefined
               enhancedEntity.vehicle_class = swapiData.vehicle_class || swapiData.starship_class
+              enhancedEntity.length = swapiData.length !== "unknown" ? swapiData.length : undefined
+              enhancedEntity.crew = swapiData.crew !== "unknown" ? swapiData.crew : undefined
+              enhancedEntity.passengers = swapiData.passengers !== "unknown" ? swapiData.passengers : undefined
+              enhancedEntity.cargo_capacity =
+                swapiData.cargo_capacity !== "unknown" ? swapiData.cargo_capacity : undefined
 
               if (swapiData.films && swapiData.films.length > 0) {
                 enhancedEntity.films = await swapiService.resolveFilmTitles(swapiData.films)
@@ -113,9 +141,15 @@ class EnhancedStarWarsService {
             if (swapiData) {
               enhancedEntity.classification =
                 swapiData.classification !== "unknown" ? swapiData.classification : undefined
+              enhancedEntity.designation = swapiData.designation !== "unknown" ? swapiData.designation : undefined
+              enhancedEntity.average_height =
+                swapiData.average_height !== "unknown" ? swapiData.average_height : undefined
               enhancedEntity.average_lifespan =
                 swapiData.average_lifespan !== "unknown" ? swapiData.average_lifespan : undefined
               enhancedEntity.language = swapiData.language !== "unknown" ? swapiData.language : undefined
+              enhancedEntity.skin_colors = swapiData.skin_colors !== "unknown" ? swapiData.skin_colors : undefined
+              enhancedEntity.hair_colors = swapiData.hair_colors !== "unknown" ? swapiData.hair_colors : undefined
+              enhancedEntity.eye_colors = swapiData.eye_colors !== "unknown" ? swapiData.eye_colors : undefined
 
               if (swapiData.films && swapiData.films.length > 0) {
                 enhancedEntity.films = await swapiService.resolveFilmTitles(swapiData.films)
@@ -135,6 +169,12 @@ class EnhancedStarWarsService {
               enhancedEntity.climate = swapiData.climate !== "unknown" ? swapiData.climate : undefined
               enhancedEntity.terrain = swapiData.terrain !== "unknown" ? swapiData.terrain : undefined
               enhancedEntity.population = swapiData.population !== "unknown" ? swapiData.population : undefined
+              enhancedEntity.diameter = swapiData.diameter !== "unknown" ? swapiData.diameter : undefined
+              enhancedEntity.rotation_period =
+                swapiData.rotation_period !== "unknown" ? swapiData.rotation_period : undefined
+              enhancedEntity.orbital_period =
+                swapiData.orbital_period !== "unknown" ? swapiData.orbital_period : undefined
+              enhancedEntity.gravity = swapiData.gravity !== "unknown" ? swapiData.gravity : undefined
 
               if (swapiData.films && swapiData.films.length > 0) {
                 enhancedEntity.films = await swapiService.resolveFilmTitles(swapiData.films)

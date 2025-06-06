@@ -4,23 +4,46 @@ export interface EnhancedEntity extends BaseEntity {
   // Original Databank data
   description: string
 
-  // Enhanced SWAPI data
+  // Common SWAPI data
+  films: string[]
+
+  // Character specific fields
   height?: string
   mass?: string
   gender?: string
-  classification?: string
-  films: string[]
+  birth_year?: string
+  eye_color?: string
+  hair_color?: string
+  skin_color?: string
 
-  // Additional fields based on entity type
+  // Vehicle specific fields
   manufacturer?: string
   model?: string
   vehicle_class?: string
   starship_class?: string
+  length?: string
+  crew?: string
+  passengers?: string
+  cargo_capacity?: string
+
+  // Species specific fields
+  classification?: string
+  designation?: string
+  average_height?: string
   average_lifespan?: string
   language?: string
+  skin_colors?: string
+  hair_colors?: string
+  eye_colors?: string
+
+  // Planet specific fields
   climate?: string
   terrain?: string
   population?: string
+  diameter?: string
+  rotation_period?: string
+  orbital_period?: string
+  gravity?: string
 
   // Metadata
   swapiMatch: boolean

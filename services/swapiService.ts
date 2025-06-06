@@ -1,11 +1,12 @@
 import axios from "axios"
 
+// SWAPI base URL
 const SWAPI_BASE_URL = "https://swapi.dev/api"
 
 // Add timeout and better error handling
 const swapiClient = axios.create({
   baseURL: SWAPI_BASE_URL,
-  timeout: 5000, // 5 second timeout
+  timeout: 8000, // 8 second timeout
   headers: {
     Accept: "application/json",
     "Content-Type": "application/json",
@@ -27,6 +28,7 @@ swapiClient.interceptors.response.use(
   },
 )
 
+// Type definitions for SWAPI responses
 export interface SwapiCharacter {
   name: string
   height: string
@@ -145,34 +147,60 @@ export interface SwapiSearchResponse<T> {
   results: T[]
 }
 
+// Map of film URLs to titles for caching
+const FILM_TITLES: Record<string, string> = {
+  "https://swapi.dev/api/films/1/": "A New Hope",
+  "https://swapi.dev/api/films/2/": "The Empire Strikes Back",
+  "https://swapi.dev/api/films/3/": "Return of the Jedi",
+  "https://swapi.dev/api/films/4/": "The Phantom Menace",
+  "https://swapi.dev/api/films/5/": "Attack of the Clones",
+  "https://swapi.dev/api/films/6/": "Revenge of the Sith",
+}
+
 class SwapiService {
   private filmCache = new Map<string, string>()
   private isOnline = true
+  private lastOnlineCheck = 0
+  private readonly ONLINE_CHECK_INTERVAL = 30000 // 30 seconds
 
-  private async makeRequest<T>(url: string): Promise<T | null> {
-    if (!this.isOnline) {
+  constructor() {
+    // Pre-populate film cache with known films
+    Object.entries(FILM_TITLES).forEach(([url, title]) => {
+      this.filmCache.set(url, title)
+    })
+  }
+
+  private async makeRequest<T>(endpoint: string, params: Record<string, string> = {}): Promise<T | null> {
+    // Check if we're in offline mode
+    if (!this.isOnline && Date.now() - this.lastOnlineCheck < this.ONLINE_CHECK_INTERVAL) {
       console.warn("SWAPI service is offline, skipping request")
       return null
     }
 
     try {
-      const response = await swapiClient.get<T>(url)
+      console.log(`Making SWAPI request to: ${endpoint}`, params)
+      const response = await swapiClient.get<T>(endpoint, { params })
+
+      // Reset online status on successful request
+      if (!this.isOnline) {
+        console.log("SWAPI is back online")
+        this.isOnline = true
+      }
+
       return response.data
     } catch (error: any) {
       // Handle different types of errors
       if (error.code === "ECONNABORTED") {
-        console.warn(`SWAPI timeout for ${url}`)
+        console.warn(`SWAPI timeout for ${endpoint}`)
       } else if (error.response?.status === 404) {
-        console.warn(`SWAPI resource not found: ${url}`)
+        console.warn(`SWAPI resource not found: ${endpoint}`)
       } else if (!error.response) {
-        console.warn(`SWAPI network error for ${url}:`, error.message)
+        console.warn(`SWAPI network error for ${endpoint}:`, error.message)
         // Mark as offline temporarily to avoid repeated failures
         this.isOnline = false
-        setTimeout(() => {
-          this.isOnline = true
-        }, 30000) // Re-enable after 30 seconds
+        this.lastOnlineCheck = Date.now()
       } else {
-        console.warn(`SWAPI error for ${url}:`, error.response?.status, error.response?.statusText)
+        console.warn(`SWAPI error for ${endpoint}:`, error.response?.status, error.response?.statusText)
       }
       return null
     }
@@ -180,16 +208,15 @@ class SwapiService {
 
   async searchCharacters(name: string): Promise<SwapiCharacter | null> {
     try {
-      const searchUrl = `/people/?search=${encodeURIComponent(name)}`
-      const response = await this.makeRequest<SwapiSearchResponse<SwapiCharacter>>(searchUrl)
+      console.log(`Searching SWAPI for character: ${name}`)
+      const response = await this.makeRequest<SwapiSearchResponse<SwapiCharacter>>("/people/", { search: name })
 
-      if (!response || !response.results) {
+      if (!response || !response.results || response.results.length === 0) {
         return null
       }
 
       // Find exact or close match
       const exactMatch = response.results.find((char) => char.name.toLowerCase() === name.toLowerCase())
-
       if (exactMatch) return exactMatch
 
       // If no exact match, try partial match
@@ -198,7 +225,7 @@ class SwapiService {
           char.name.toLowerCase().includes(name.toLowerCase()) || name.toLowerCase().includes(char.name.toLowerCase()),
       )
 
-      return partialMatch || null
+      return partialMatch || response.results[0] // Return first result if no match found
     } catch (error) {
       console.error(`Error searching SWAPI characters for "${name}":`, error)
       return null
@@ -207,15 +234,14 @@ class SwapiService {
 
   async searchVehicles(name: string): Promise<SwapiVehicle | null> {
     try {
-      const searchUrl = `/vehicles/?search=${encodeURIComponent(name)}`
-      const response = await this.makeRequest<SwapiSearchResponse<SwapiVehicle>>(searchUrl)
+      console.log(`Searching SWAPI for vehicle: ${name}`)
+      const response = await this.makeRequest<SwapiSearchResponse<SwapiVehicle>>("/vehicles/", { search: name })
 
-      if (!response || !response.results) {
+      if (!response || !response.results || response.results.length === 0) {
         return null
       }
 
       const exactMatch = response.results.find((vehicle) => vehicle.name.toLowerCase() === name.toLowerCase())
-
       if (exactMatch) return exactMatch
 
       const partialMatch = response.results.find(
@@ -224,7 +250,7 @@ class SwapiService {
           name.toLowerCase().includes(vehicle.name.toLowerCase()),
       )
 
-      return partialMatch || null
+      return partialMatch || response.results[0]
     } catch (error) {
       console.error(`Error searching SWAPI vehicles for "${name}":`, error)
       return null
@@ -233,15 +259,14 @@ class SwapiService {
 
   async searchStarships(name: string): Promise<SwapiStarship | null> {
     try {
-      const searchUrl = `/starships/?search=${encodeURIComponent(name)}`
-      const response = await this.makeRequest<SwapiSearchResponse<SwapiStarship>>(searchUrl)
+      console.log(`Searching SWAPI for starship: ${name}`)
+      const response = await this.makeRequest<SwapiSearchResponse<SwapiStarship>>("/starships/", { search: name })
 
-      if (!response || !response.results) {
+      if (!response || !response.results || response.results.length === 0) {
         return null
       }
 
       const exactMatch = response.results.find((ship) => ship.name.toLowerCase() === name.toLowerCase())
-
       if (exactMatch) return exactMatch
 
       const partialMatch = response.results.find(
@@ -249,7 +274,7 @@ class SwapiService {
           ship.name.toLowerCase().includes(name.toLowerCase()) || name.toLowerCase().includes(ship.name.toLowerCase()),
       )
 
-      return partialMatch || null
+      return partialMatch || response.results[0]
     } catch (error) {
       console.error(`Error searching SWAPI starships for "${name}":`, error)
       return null
@@ -258,15 +283,14 @@ class SwapiService {
 
   async searchSpecies(name: string): Promise<SwapiSpecies | null> {
     try {
-      const searchUrl = `/species/?search=${encodeURIComponent(name)}`
-      const response = await this.makeRequest<SwapiSearchResponse<SwapiSpecies>>(searchUrl)
+      console.log(`Searching SWAPI for species: ${name}`)
+      const response = await this.makeRequest<SwapiSearchResponse<SwapiSpecies>>("/species/", { search: name })
 
-      if (!response || !response.results) {
+      if (!response || !response.results || response.results.length === 0) {
         return null
       }
 
       const exactMatch = response.results.find((species) => species.name.toLowerCase() === name.toLowerCase())
-
       if (exactMatch) return exactMatch
 
       const partialMatch = response.results.find(
@@ -275,7 +299,7 @@ class SwapiService {
           name.toLowerCase().includes(species.name.toLowerCase()),
       )
 
-      return partialMatch || null
+      return partialMatch || response.results[0]
     } catch (error) {
       console.error(`Error searching SWAPI species for "${name}":`, error)
       return null
@@ -284,15 +308,14 @@ class SwapiService {
 
   async searchPlanets(name: string): Promise<SwapiPlanet | null> {
     try {
-      const searchUrl = `/planets/?search=${encodeURIComponent(name)}`
-      const response = await this.makeRequest<SwapiSearchResponse<SwapiPlanet>>(searchUrl)
+      console.log(`Searching SWAPI for planet: ${name}`)
+      const response = await this.makeRequest<SwapiSearchResponse<SwapiPlanet>>("/planets/", { search: name })
 
-      if (!response || !response.results) {
+      if (!response || !response.results || response.results.length === 0) {
         return null
       }
 
       const exactMatch = response.results.find((planet) => planet.name.toLowerCase() === name.toLowerCase())
-
       if (exactMatch) return exactMatch
 
       const partialMatch = response.results.find(
@@ -301,7 +324,7 @@ class SwapiService {
           name.toLowerCase().includes(planet.name.toLowerCase()),
       )
 
-      return partialMatch || null
+      return partialMatch || response.results[0]
     } catch (error) {
       console.error(`Error searching SWAPI planets for "${name}":`, error)
       return null
@@ -309,16 +332,27 @@ class SwapiService {
   }
 
   async getFilmTitle(filmUrl: string): Promise<string> {
+    // Check cache first
     if (this.filmCache.has(filmUrl)) {
       return this.filmCache.get(filmUrl)!
     }
 
-    try {
-      // Extract the film ID from the URL and construct the path
-      const filmId = filmUrl.split("/").filter(Boolean).pop()
-      const filmPath = `/films/${filmId}/`
+    // Check predefined film titles
+    if (FILM_TITLES[filmUrl]) {
+      this.filmCache.set(filmUrl, FILM_TITLES[filmUrl])
+      return FILM_TITLES[filmUrl]
+    }
 
-      const response = await this.makeRequest<SwapiFilm>(filmPath)
+    try {
+      // Extract the film ID from the URL
+      const filmId = filmUrl.split("/").filter(Boolean).pop()
+
+      if (!filmId) {
+        console.warn(`Invalid film URL: ${filmUrl}`)
+        return "Unknown Film"
+      }
+
+      const response = await this.makeRequest<SwapiFilm>(`/films/${filmId}/`)
 
       if (response?.title) {
         this.filmCache.set(filmUrl, response.title)
@@ -351,7 +385,8 @@ class SwapiService {
   // Method to check if SWAPI is available
   async checkAvailability(): Promise<boolean> {
     try {
-      const response = await this.makeRequest<any>("/people/1/")
+      // Try to fetch Luke Skywalker as a test
+      const response = await this.makeRequest<SwapiCharacter>("/people/1/")
       return response !== null
     } catch (error) {
       return false
@@ -361,6 +396,7 @@ class SwapiService {
   // Method to reset online status
   resetOnlineStatus() {
     this.isOnline = true
+    this.lastOnlineCheck = 0
   }
 }
 
