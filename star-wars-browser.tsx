@@ -40,16 +40,11 @@ export default function StarWarsBrowser() {
 
       console.log(`Fetching ${category} page ${page} with search: ${search || "none"}`)
 
-      // Force refresh SWAPI data on each page load
-      const response = await enhancedStarWarsService.getEnhancedEntities(
-        category,
-        {
-          page,
-          limit: 9,
-          search: search || undefined,
-        },
-        true,
-      ) // Force refresh = true
+      const response = await enhancedStarWarsService.getEnhancedEntities(category, {
+        page,
+        limit: 9,
+        search: search || undefined,
+      })
 
       if (response.success) {
         console.log(`Received ${response.data.data.length} enhanced entities`)
@@ -229,55 +224,37 @@ export default function StarWarsBrowser() {
 
             {/* SWAPI Status */}
             <div className="mb-6 flex justify-center">
-              <div className="bg-slate-800/80 backdrop-blur-sm rounded-lg p-4 max-w-2xl w-full">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className={`w-3 h-3 rounded-full ${
-                          swapiStatus === "available"
-                            ? "bg-green-500"
-                            : swapiStatus === "checking"
-                              ? "bg-yellow-500 animate-pulse"
-                              : "bg-red-500"
-                        }`}
-                      ></div>
-                      <span className="text-sm text-gray-300">SWAPI Status:</span>
-                    </div>
-                    {swapiStatus === "available" && <span className="text-sm text-green-400">✅ Available</span>}
-                    {swapiStatus === "checking" && <span className="text-sm text-yellow-400">🔄 Checking...</span>}
-                    {swapiStatus === "unavailable" && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-red-400">❌ Unavailable</span>
-                        <span className="text-xs text-gray-500">(Using Databank only)</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={handleRetrySwapiConnection}
-                    disabled={enhancementInProgress || swapiStatus === "checking"}
-                    className="ml-2"
-                  >
-                    {enhancementInProgress ? (
-                      <Loader2 className="w-4 h-4 animate-spin mr-1" />
-                    ) : (
-                      <RefreshCw className="w-4 h-4 mr-1" />
-                    )}
-                    {swapiStatus === "unavailable" ? "Retry SWAPI" : "Refresh"}
-                  </Button>
+              <div className="bg-slate-800/80 backdrop-blur-sm rounded-lg p-3 flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <div
+                    className={`w-3 h-3 rounded-full ${
+                      swapiStatus === "available"
+                        ? "bg-green-500"
+                        : swapiStatus === "checking"
+                          ? "bg-yellow-500"
+                          : "bg-red-500"
+                    }`}
+                  ></div>
+                  <span className="text-sm text-gray-300">SWAPI Status:</span>
                 </div>
+                {swapiStatus === "available" && <span className="text-sm text-green-400">Available</span>}
+                {swapiStatus === "checking" && <span className="text-sm text-yellow-400">Checking...</span>}
+                {swapiStatus === "unavailable" && <span className="text-sm text-red-400">Unavailable</span>}
 
-                {swapiStatus === "unavailable" && (
-                  <div className="mt-3 p-3 bg-orange-900/20 border border-orange-500/30 rounded-lg">
-                    <p className="text-xs text-orange-300">
-                      ⚠️ SWAPI (swapi.dev) appears to be down. The app is running in Databank-only mode. Some enhanced
-                      features like film appearances and detailed physical attributes may not be available.
-                    </p>
-                  </div>
-                )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleRetrySwapiConnection}
+                  disabled={enhancementInProgress || swapiStatus === "checking"}
+                  className="ml-2"
+                >
+                  {enhancementInProgress ? (
+                    <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                  ) : (
+                    <RefreshCw className="w-4 h-4 mr-1" />
+                  )}
+                  Refresh SWAPI
+                </Button>
               </div>
             </div>
 
