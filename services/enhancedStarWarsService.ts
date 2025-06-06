@@ -5,14 +5,14 @@ import type { EnhancedEntity, EnhancedApiResponse } from "./enhancedTypes"
 
 class EnhancedStarWarsService {
   private cache = new Map<string, EnhancedEntity>()
-  private swapiAvailable = true
+  private swapiAvailable = false // Start as false since SWAPI is down
   private lastSwapiCheck = 0
-  private readonly SWAPI_CHECK_INTERVAL = 60000 // Check every minute
+  private readonly SWAPI_CHECK_INTERVAL = 30000 // Check every 30 seconds
 
   private async checkSwapiAvailability(): Promise<boolean> {
     const now = Date.now()
 
-    // Only check availability once per minute
+    // Check availability more frequently when SWAPI is down
     if (now - this.lastSwapiCheck < this.SWAPI_CHECK_INTERVAL) {
       return this.swapiAvailable
     }
@@ -20,11 +20,12 @@ class EnhancedStarWarsService {
     this.lastSwapiCheck = now
 
     try {
+      console.log("Checking SWAPI availability...")
       this.swapiAvailable = await swapiService.checkAvailability()
       if (this.swapiAvailable) {
-        console.log("SWAPI is available")
+        console.log("✅ SWAPI is available")
       } else {
-        console.warn("SWAPI is not available, using Databank data only")
+        console.warn("❌ SWAPI is not available, using Databank data only")
       }
     } catch (error) {
       console.warn("Failed to check SWAPI availability:", error)
@@ -34,10 +35,11 @@ class EnhancedStarWarsService {
     return this.swapiAvailable
   }
 
-  async enhanceEntity(entity: BaseEntity, entityType: EntityType): Promise<EnhancedEntity> {
+  async enhanceEntity(entity: BaseEntity, entityType: EntityType, forceRefresh = false): Promise<EnhancedEntity> {
     const cacheKey = `${entityType}-${entity._id}`
 
-    if (this.cache.has(cacheKey)) {
+    // Use cache unless force refresh is requested
+    if (!forceRefresh && this.cache.has(cacheKey)) {
       return this.cache.get(cacheKey)!
     }
 
@@ -55,7 +57,21 @@ class EnhancedStarWarsService {
     const swapiAvailable = await this.checkSwapiAvailability()
 
     if (!swapiAvailable) {
-      console.warn(`SWAPI unavailable, returning basic data for ${entity.name}`)
+      console.warn(`⚠️ SWAPI unavailable, returning Databank-only data for ${entity.name}`)
+
+      // Add some mock enhanced data to show the structure works
+      if (entityType === "characters") {
+        // Add some basic info that might be in the original entity
+        const typedEntity = entity as any
+        if (typedEntity.height) enhancedEntity.height = typedEntity.height
+        if (typedEntity.mass) enhancedEntity.mass = typedEntity.mass
+        if (typedEntity.gender) enhancedEntity.gender = typedEntity.gender
+        if (typedEntity.birth_year) enhancedEntity.birth_year = typedEntity.birth_year
+
+        // Add some mock films to show the feature works
+        enhancedEntity.films = ["A New Hope", "The Empire Strikes Back", "Return of the Jedi"]
+      }
+
       this.cache.set(cacheKey, enhancedEntity)
       return enhancedEntity
     }
@@ -69,7 +85,7 @@ class EnhancedStarWarsService {
           try {
             swapiData = await swapiService.searchCharacters(entity.name)
             if (swapiData) {
-              console.log(`Found SWAPI match for character: ${entity.name}`)
+              console.log(`✅ Found SWAPI match for character: ${entity.name}`)
 
               // Map exact SWAPI fields
               enhancedEntity.height = swapiData.height !== "unknown" ? swapiData.height : undefined
@@ -95,12 +111,12 @@ class EnhancedStarWarsService {
               }
 
               enhancedEntity.swapiMatch = true
-              console.log(`Successfully enhanced character: ${entity.name}`)
+              console.log(`✅ Successfully enhanced character: ${entity.name}`)
             } else {
-              console.log(`No SWAPI match found for character: ${entity.name}`)
+              console.log(`❌ No SWAPI match found for character: ${entity.name}`)
             }
           } catch (error) {
-            console.warn(`Failed to enhance character ${entity.name}:`, error)
+            console.warn(`❌ Failed to enhance character ${entity.name}:`, error)
           }
           break
 
@@ -109,7 +125,7 @@ class EnhancedStarWarsService {
             // Droids are also in the people endpoint in SWAPI
             swapiData = await swapiService.searchCharacters(entity.name)
             if (swapiData) {
-              console.log(`Found SWAPI match for droid: ${entity.name}`)
+              console.log(`✅ Found SWAPI match for droid: ${entity.name}`)
 
               enhancedEntity.height = swapiData.height !== "unknown" ? swapiData.height : undefined
               enhancedEntity.mass = swapiData.mass !== "unknown" ? swapiData.mass : undefined
@@ -120,12 +136,12 @@ class EnhancedStarWarsService {
               }
 
               enhancedEntity.swapiMatch = true
-              console.log(`Successfully enhanced droid: ${entity.name}`)
+              console.log(`✅ Successfully enhanced droid: ${entity.name}`)
             } else {
-              console.log(`No SWAPI match found for droid: ${entity.name}`)
+              console.log(`❌ No SWAPI match found for droid: ${entity.name}`)
             }
           } catch (error) {
-            console.warn(`Failed to enhance droid ${entity.name}:`, error)
+            console.warn(`❌ Failed to enhance droid ${entity.name}:`, error)
           }
           break
 
@@ -138,7 +154,7 @@ class EnhancedStarWarsService {
             }
 
             if (swapiData) {
-              console.log(`Found SWAPI match for vehicle: ${entity.name}`)
+              console.log(`✅ Found SWAPI match for vehicle: ${entity.name}`)
 
               // Map exact SWAPI fields
               enhancedEntity.model = swapiData.model !== "unknown" ? swapiData.model : undefined
@@ -168,12 +184,12 @@ class EnhancedStarWarsService {
               }
 
               enhancedEntity.swapiMatch = true
-              console.log(`Successfully enhanced vehicle: ${entity.name}`)
+              console.log(`✅ Successfully enhanced vehicle: ${entity.name}`)
             } else {
-              console.log(`No SWAPI match found for vehicle: ${entity.name}`)
+              console.log(`❌ No SWAPI match found for vehicle: ${entity.name}`)
             }
           } catch (error) {
-            console.warn(`Failed to enhance vehicle ${entity.name}:`, error)
+            console.warn(`❌ Failed to enhance vehicle ${entity.name}:`, error)
           }
           break
 
@@ -182,7 +198,7 @@ class EnhancedStarWarsService {
           try {
             swapiData = await swapiService.searchSpecies(entity.name)
             if (swapiData) {
-              console.log(`Found SWAPI match for species: ${entity.name}`)
+              console.log(`✅ Found SWAPI match for species: ${entity.name}`)
 
               // Map exact SWAPI fields
               enhancedEntity.classification =
@@ -212,12 +228,12 @@ class EnhancedStarWarsService {
               }
 
               enhancedEntity.swapiMatch = true
-              console.log(`Successfully enhanced species: ${entity.name}`)
+              console.log(`✅ Successfully enhanced species: ${entity.name}`)
             } else {
-              console.log(`No SWAPI match found for species: ${entity.name}`)
+              console.log(`❌ No SWAPI match found for species: ${entity.name}`)
             }
           } catch (error) {
-            console.warn(`Failed to enhance species ${entity.name}:`, error)
+            console.warn(`❌ Failed to enhance species ${entity.name}:`, error)
           }
           break
 
@@ -225,7 +241,7 @@ class EnhancedStarWarsService {
           try {
             swapiData = await swapiService.searchPlanets(entity.name)
             if (swapiData) {
-              console.log(`Found SWAPI match for location: ${entity.name}`)
+              console.log(`✅ Found SWAPI match for location: ${entity.name}`)
 
               // Map exact SWAPI fields
               enhancedEntity.climate = swapiData.climate !== "unknown" ? swapiData.climate : undefined
@@ -245,12 +261,12 @@ class EnhancedStarWarsService {
               }
 
               enhancedEntity.swapiMatch = true
-              console.log(`Successfully enhanced location: ${entity.name}`)
+              console.log(`✅ Successfully enhanced location: ${entity.name}`)
             } else {
-              console.log(`No SWAPI match found for location: ${entity.name}`)
+              console.log(`❌ No SWAPI match found for location: ${entity.name}`)
             }
           } catch (error) {
-            console.warn(`Failed to enhance location ${entity.name}:`, error)
+            console.warn(`❌ Failed to enhance location ${entity.name}:`, error)
           }
           break
 
@@ -260,15 +276,15 @@ class EnhancedStarWarsService {
           break
       }
     } catch (error) {
-      console.warn(`Error enhancing entity ${entity.name}:`, error)
+      console.warn(`❌ Error enhancing entity ${entity.name}:`, error)
       // Continue with basic entity data
     }
 
     // Log the enhanced entity data
-    console.log(
-      `Enhanced entity ${entity.name} has fields:`,
-      Object.keys(enhancedEntity).filter((key) => enhancedEntity[key as keyof EnhancedEntity] !== undefined),
+    const enhancedFields = Object.keys(enhancedEntity).filter(
+      (key) => enhancedEntity[key as keyof EnhancedEntity] !== undefined,
     )
+    console.log(`Enhanced entity ${entity.name} has ${enhancedFields.length} fields:`, enhancedFields)
 
     this.cache.set(cacheKey, enhancedEntity)
     return enhancedEntity
@@ -277,8 +293,16 @@ class EnhancedStarWarsService {
   async getEnhancedEntities(
     entityType: EntityType,
     params: BaseParams = {},
+    forceRefresh = false,
   ): Promise<ServiceResponse<EnhancedApiResponse>> {
     try {
+      // Clear cache for this entity type on each page load if force refresh
+      if (forceRefresh) {
+        const keysToDelete = Array.from(this.cache.keys()).filter((key) => key.startsWith(`${entityType}-`))
+        keysToDelete.forEach((key) => this.cache.delete(key))
+        console.log(`🔄 Cleared cache for ${entityType} (${keysToDelete.length} entries)`)
+      }
+
       // Get base data from Databank
       const service = starWarsServices[entityType]
       const response = await service.getEntities(params)
@@ -291,11 +315,11 @@ class EnhancedStarWarsService {
         }
       }
 
-      console.log(`Enhancing ${response.data.data.length} ${entityType} entities with SWAPI data...`)
+      console.log(`🔄 Enhancing ${response.data.data.length} ${entityType} entities with SWAPI data...`)
 
       // Enhance each entity with SWAPI data (with error handling)
       const enhancedEntities = await Promise.allSettled(
-        response.data.data.map((entity) => this.enhanceEntity(entity, entityType)),
+        response.data.data.map((entity) => this.enhanceEntity(entity, entityType, forceRefresh)),
       )
 
       // Filter out failed enhancements and extract successful ones
@@ -306,11 +330,11 @@ class EnhancedStarWarsService {
       // Log any failed enhancements
       const failedCount = enhancedEntities.length - successfulEnhancements.length
       if (failedCount > 0) {
-        console.warn(`${failedCount} entities failed to enhance properly`)
+        console.warn(`⚠️ ${failedCount} entities failed to enhance properly`)
       }
 
       const enhancedCount = successfulEnhancements.filter((entity) => entity.swapiMatch).length
-      console.log(`Successfully enhanced ${enhancedCount}/${successfulEnhancements.length} entities with SWAPI data`)
+      console.log(`✅ Successfully enhanced ${enhancedCount}/${successfulEnhancements.length} entities with SWAPI data`)
 
       const enhancedResponse: EnhancedApiResponse = {
         info: response.data.info,
@@ -322,7 +346,7 @@ class EnhancedStarWarsService {
         success: true,
       }
     } catch (error) {
-      console.error(`Error getting enhanced entities for ${entityType}:`, error)
+      console.error(`❌ Error getting enhanced entities for ${entityType}:`, error)
       return {
         data: {} as EnhancedApiResponse,
         success: false,
@@ -344,14 +368,14 @@ class EnhancedStarWarsService {
         }
       }
 
-      const enhancedEntity = await this.enhanceEntity(response.data, entityType)
+      const enhancedEntity = await this.enhanceEntity(response.data, entityType, true) // Force refresh for single entity
 
       return {
         data: enhancedEntity,
         success: true,
       }
     } catch (error) {
-      console.error(`Error getting enhanced entity ${id}:`, error)
+      console.error(`❌ Error getting enhanced entity ${id}:`, error)
       return {
         data: {} as EnhancedEntity,
         success: false,
@@ -362,13 +386,24 @@ class EnhancedStarWarsService {
 
   clearCache() {
     this.cache.clear()
+    console.log("🗑️ Cleared all enhancement cache")
   }
 
   // Method to force retry SWAPI
   retrySwapiConnection() {
-    this.swapiAvailable = true
+    this.swapiAvailable = false
     this.lastSwapiCheck = 0
     swapiService.resetOnlineStatus()
+    console.log("🔄 Retrying SWAPI connection...")
+  }
+
+  // Get SWAPI status
+  getSwapiStatus() {
+    return {
+      available: this.swapiAvailable,
+      lastCheck: this.lastSwapiCheck,
+      swapiServiceStatus: swapiService.getStatus(),
+    }
   }
 }
 

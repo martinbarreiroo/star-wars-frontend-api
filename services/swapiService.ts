@@ -6,7 +6,7 @@ const SWAPI_BASE_URL = "https://swapi.dev/api"
 // Add timeout and better error handling
 const swapiClient = axios.create({
   baseURL: SWAPI_BASE_URL,
-  timeout: 8000, // 8 second timeout
+  timeout: 5000, // Reduced timeout to 5 seconds
   headers: {
     Accept: "application/json",
     "Content-Type": "application/json",
@@ -18,11 +18,13 @@ swapiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.code === "ECONNABORTED") {
-      console.warn("SWAPI request timeout")
+      console.warn("SWAPI request timeout - service may be down")
     } else if (error.response?.status === 404) {
       console.warn("SWAPI resource not found")
     } else if (!error.response) {
-      console.warn("SWAPI network error - possibly CORS or connectivity issue")
+      console.warn("SWAPI network error - service appears to be down")
+    } else {
+      console.warn(`SWAPI error: ${error.response?.status} ${error.response?.statusText}`)
     }
     return Promise.reject(error)
   },
@@ -160,9 +162,11 @@ const FILM_TITLES: Record<string, string> = {
 class SwapiService {
   private filmCache = new Map<string, string>()
   private planetCache = new Map<string, string>()
-  private isOnline = true
+  private isOnline = false // Start as offline since SWAPI is down
   private lastOnlineCheck = 0
   private readonly ONLINE_CHECK_INTERVAL = 30000 // 30 seconds
+  private consecutiveFailures = 0
+  private readonly MAX_FAILURES = 3
 
   constructor() {
     // Pre-populate film cache with known films
@@ -172,37 +176,47 @@ class SwapiService {
   }
 
   private async makeRequest<T>(endpoint: string, params: Record<string, string> = {}): Promise<T | null> {
-    // Check if we're in offline mode
-    if (!this.isOnline && Date.now() - this.lastOnlineCheck < this.ONLINE_CHECK_INTERVAL) {
-      console.warn("SWAPI service is offline, skipping request")
+    // If we've had too many consecutive failures, don't try again for a while
+    if (
+      this.consecutiveFailures >= this.MAX_FAILURES &&
+      Date.now() - this.lastOnlineCheck < this.ONLINE_CHECK_INTERVAL
+    ) {
+      console.warn("SWAPI service is offline due to consecutive failures, skipping request")
       return null
     }
 
     try {
-      console.log(`Making SWAPI request to: ${endpoint}`, params)
+      console.log(`Attempting SWAPI request to: ${endpoint}`, params)
       const response = await swapiClient.get<T>(endpoint, { params })
 
-      // Reset online status on successful request
+      // Reset failure count on successful request
+      this.consecutiveFailures = 0
       if (!this.isOnline) {
-        console.log("SWAPI is back online")
+        console.log("SWAPI is back online!")
         this.isOnline = true
       }
 
       return response.data
     } catch (error: any) {
+      this.consecutiveFailures++
+      this.lastOnlineCheck = Date.now()
+
       // Handle different types of errors
       if (error.code === "ECONNABORTED") {
-        console.warn(`SWAPI timeout for ${endpoint}`)
+        console.warn(`SWAPI timeout for ${endpoint} (attempt ${this.consecutiveFailures})`)
       } else if (error.response?.status === 404) {
         console.warn(`SWAPI resource not found: ${endpoint}`)
       } else if (!error.response) {
-        console.warn(`SWAPI network error for ${endpoint}:`, error.message)
-        // Mark as offline temporarily to avoid repeated failures
+        console.warn(`SWAPI network error for ${endpoint} (attempt ${this.consecutiveFailures}):`, error.message)
         this.isOnline = false
-        this.lastOnlineCheck = Date.now()
       } else {
-        console.warn(`SWAPI error for ${endpoint}:`, error.response?.status, error.response?.statusText)
+        console.warn(
+          `SWAPI error for ${endpoint} (attempt ${this.consecutiveFailures}):`,
+          error.response?.status,
+          error.response?.statusText,
+        )
       }
+
       return null
     }
   }
@@ -472,18 +486,42 @@ class SwapiService {
   // Method to check if SWAPI is available
   async checkAvailability(): Promise<boolean> {
     try {
+      console.log("Checking SWAPI availability...")
       // Try to fetch Luke Skywalker as a test
       const response = await this.makeRequest<SwapiCharacter>("/people/1/")
-      return response !== null
+      const isAvailable = response !== null
+
+      if (isAvailable) {
+        console.log("SWAPI is available!")
+        this.isOnline = true
+        this.consecutiveFailures = 0
+      } else {
+        console.log("SWAPI is not available")
+        this.isOnline = false
+      }
+
+      return isAvailable
     } catch (error) {
+      console.log("SWAPI availability check failed:", error)
+      this.isOnline = false
       return false
     }
   }
 
   // Method to reset online status
   resetOnlineStatus() {
-    this.isOnline = true
+    this.isOnline = false // Start as offline since SWAPI is down
     this.lastOnlineCheck = 0
+    this.consecutiveFailures = 0
+  }
+
+  // Get current status
+  getStatus() {
+    return {
+      isOnline: this.isOnline,
+      consecutiveFailures: this.consecutiveFailures,
+      lastCheck: this.lastOnlineCheck,
+    }
   }
 }
 
