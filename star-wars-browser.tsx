@@ -1,9 +1,7 @@
-"use client";
-
-import type React from "react";
-import { useState, useEffect } from "react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+"use client"
+import { useState, useEffect } from "react"
+import { Card, CardContent } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import {
   Pagination,
   PaginationContent,
@@ -12,100 +10,101 @@ import {
   PaginationLink,
   PaginationNext,
   PaginationPrevious,
-} from "@/components/ui/pagination";
-import { Loader2, Menu, X } from "lucide-react";
-import { starWarsServices } from "@/services/starWarsService";
-import { BaseEntity, EntityType, ENTITY_CATEGORIES } from "@/services/types";
-import StarWarsSidebar from "@/components/StarWarsSidebar";
-import EntityCard from "@/components/EntityCard";
+} from "@/components/ui/pagination"
+import { Loader2, Menu, X } from "lucide-react"
+import { enhancedStarWarsService } from "@/services/enhancedStarWarsService"
+import { type EnhancedEntity, ENTITY_MAPPINGS } from "@/services/enhancedTypes"
+import type { EntityType } from "@/services/types"
+import EnhancedStarWarsSidebar from "@/components/EnhancedStarWarsSidebar"
+import EnhancedEntityCard from "@/components/EnhancedEntityCard"
 
 export default function StarWarsBrowser() {
-  const [entities, setEntities] = useState<BaseEntity[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalEntities, setTotalEntities] = useState(0);
-  const [selectedCategory, setSelectedCategory] =
-    useState<EntityType>("characters");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [entities, setEntities] = useState<EnhancedEntity[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalEntities, setTotalEntities] = useState(0)
+  const [selectedCategory, setSelectedCategory] = useState<EntityType>("characters")
+  const [searchQuery, setSearchQuery] = useState("")
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [entityCounts, setEntityCounts] = useState<Record<EntityType, number>>({})
 
-  const fetchEntities = async (
-    page: number,
-    category: EntityType,
-    search?: string,
-  ) => {
+  const fetchEntities = async (page: number, category: EntityType, search?: string) => {
     try {
-      setLoading(true);
-      setError(null);
+      setLoading(true)
+      setError(null)
 
-      const service = starWarsServices[category];
-      const response = await service.getEntities({
+      const response = await enhancedStarWarsService.getEnhancedEntities(category, {
         page,
         limit: 9,
         search: search || undefined,
-      });
+      })
 
       if (response.success) {
-        setEntities(response.data.data);
-        setTotalPages(
-          Math.ceil(response.data.info.total / response.data.info.limit),
-        );
-        setTotalEntities(response.data.info.total);
-        setCurrentPage(response.data.info.page);
+        setEntities(response.data.data)
+        setTotalPages(Math.ceil(response.data.info.total / response.data.info.limit))
+        setTotalEntities(response.data.info.total)
+        setCurrentPage(response.data.info.page)
+
+        // Update entity counts
+        setEntityCounts((prev) => ({
+          ...prev,
+          [category]: response.data.info.total,
+        }))
       } else {
-        setError(response.error || `Failed to fetch ${category}`);
+        setError(response.error || `Failed to fetch ${category}`)
       }
     } catch (err) {
-      setError("An unexpected error occurred. Please try again later.");
-      console.error(`Error fetching ${category}:`, err);
+      setError("An unexpected error occurred. Please try again later.")
+      console.error(`Error fetching ${category}:`, err)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   useEffect(() => {
-    fetchEntities(1, selectedCategory, searchQuery);
-    setCurrentPage(1);
-  }, [selectedCategory, searchQuery]);
+    fetchEntities(1, selectedCategory, searchQuery)
+    setCurrentPage(1)
+  }, [selectedCategory, searchQuery])
 
   useEffect(() => {
-    fetchEntities(currentPage, selectedCategory, searchQuery);
-  }, [currentPage]);
+    fetchEntities(currentPage, selectedCategory, searchQuery)
+  }, [currentPage])
 
   const handlePageChange = (page: number) => {
     if (page >= 1 && page <= totalPages) {
-      setCurrentPage(page);
+      setCurrentPage(page)
     }
-  };
+  }
 
   const handleCategoryChange = (category: EntityType) => {
-    setSelectedCategory(category);
-    setCurrentPage(1);
-  };
+    setSelectedCategory(category)
+    setCurrentPage(1)
+  }
 
   const handleSearchChange = (query: string) => {
-    setSearchQuery(query);
-    setCurrentPage(1);
-  };
+    setSearchQuery(query)
+    setCurrentPage(1)
+  }
 
   const handleSearchClear = () => {
-    setSearchQuery("");
-    setCurrentPage(1);
-  };
+    setSearchQuery("")
+    setCurrentPage(1)
+  }
 
-  const handleViewDetails = (entity: BaseEntity) => {
+  const handleViewDetails = (entity: EnhancedEntity) => {
     // TODO: Implement detail modal or navigation
-    console.log("View details for:", entity);
-  };
+    console.log("View details for:", entity)
+  }
 
   const getCurrentCategoryLabel = () => {
-    return (
-      ENTITY_CATEGORIES.find((cat) => cat.type === selectedCategory)?.label ||
-      "Items"
-    );
-  };
+    return ENTITY_MAPPINGS.find((mapping) => mapping.databankType === selectedCategory)?.displayName || "Items"
+  }
+
+  const getEnhancedCount = () => {
+    return entities.filter((entity) => entity.swapiMatch).length
+  }
 
   if (error) {
     return (
@@ -120,9 +119,7 @@ export default function StarWarsBrowser() {
             <CardContent className="p-6 text-center">
               <p className="text-red-400 mb-4">{error}</p>
               <Button
-                onClick={() =>
-                  fetchEntities(currentPage, selectedCategory, searchQuery)
-                }
+                onClick={() => fetchEntities(currentPage, selectedCategory, searchQuery)}
                 className="bg-yellow-500 text-black hover:bg-yellow-400"
               >
                 Try Again
@@ -131,7 +128,7 @@ export default function StarWarsBrowser() {
           </Card>
         </div>
       </div>
-    );
+    )
   }
 
   return (
@@ -149,13 +146,14 @@ export default function StarWarsBrowser() {
         <div
           className={`fixed top-0 left-0 h-full z-20 transition-transform duration-300 ${sidebarCollapsed ? "translate-x-0" : "translate-x-0"}`}
         >
-          <StarWarsSidebar
+          <EnhancedStarWarsSidebar
             selectedCategory={selectedCategory}
             searchQuery={searchQuery}
             onCategoryChange={handleCategoryChange}
             onSearchChange={handleSearchChange}
             onSearchClear={handleSearchClear}
             isCollapsed={sidebarCollapsed}
+            entityCounts={entityCounts}
           />
         </div>
 
@@ -165,30 +163,26 @@ export default function StarWarsBrowser() {
           className="fixed top-4 left-4 z-30 md:hidden bg-slate-800/80 backdrop-blur-sm text-white hover:bg-slate-700"
           size="icon"
         >
-          {sidebarCollapsed ? (
-            <Menu className="h-4 w-4" />
-          ) : (
-            <X className="h-4 w-4" />
-          )}
+          {sidebarCollapsed ? <Menu className="h-4 w-4" /> : <X className="h-4 w-4" />}
         </Button>
 
         {/* Main Content */}
-        <div
-          className={`flex-1 transition-all duration-300 ${sidebarCollapsed ? "ml-16" : "ml-80"}`}
-        >
+        <div className={`flex-1 transition-all duration-300 ${sidebarCollapsed ? "ml-16" : "ml-80"}`}>
           <div className="container mx-auto px-4 py-8">
             <div className="mb-8 text-center">
               <h1 className="font-star-wars text-4xl font-bold text-yellow-500 mb-2 drop-shadow-lg">
                 Star Wars {getCurrentCategoryLabel()}
               </h1>
-              <p className="text-yellow-500">
-                Explore the galaxy far, far away...
-              </p>
+              <p className="text-yellow-500">Enhanced with SWAPI data • Explore the galaxy far, far away...</p>
               {totalEntities > 0 && (
-                <p className="text-sm text-gray-400 mt-2">
-                  {totalEntities} {getCurrentCategoryLabel().toLowerCase()} in
-                  the databank
-                </p>
+                <div className="text-sm text-gray-400 mt-2 space-y-1">
+                  <p>
+                    {totalEntities} {getCurrentCategoryLabel().toLowerCase()} in the databank
+                  </p>
+                  {getEnhancedCount() > 0 && (
+                    <p className="text-green-400">{getEnhancedCount()} enhanced with SWAPI data</p>
+                  )}
+                </div>
               )}
             </div>
 
@@ -196,9 +190,8 @@ export default function StarWarsBrowser() {
               <div className="flex items-center justify-center min-h-[400px]">
                 <div className="text-center">
                   <Loader2 className="w-8 h-8 animate-spin text-yellow-500 mx-auto mb-4" />
-                  <p className="text-white">
-                    Loading {getCurrentCategoryLabel().toLowerCase()}...
-                  </p>
+                  <p className="text-white">Loading and enhancing {getCurrentCategoryLabel().toLowerCase()}...</p>
+                  <p className="text-sm text-gray-400 mt-2">Merging Databank and SWAPI data</p>
                 </div>
               </div>
             ) : (
@@ -206,7 +199,7 @@ export default function StarWarsBrowser() {
                 {/* Entity Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
                   {entities.map((entity) => (
-                    <EntityCard
+                    <EnhancedEntityCard
                       key={entity._id}
                       entity={entity}
                       entityType={selectedCategory}
@@ -227,10 +220,7 @@ export default function StarWarsBrowser() {
                           />
                         </PaginationItem>
 
-                        {Array.from(
-                          { length: totalPages },
-                          (_, i) => i + 1,
-                        ).map((page) => {
+                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
                           if (
                             page === 1 ||
                             page === totalPages ||
@@ -246,18 +236,15 @@ export default function StarWarsBrowser() {
                                   {page}
                                 </PaginationLink>
                               </PaginationItem>
-                            );
-                          } else if (
-                            page === currentPage - 2 ||
-                            page === currentPage + 2
-                          ) {
+                            )
+                          } else if (page === currentPage - 2 || page === currentPage + 2) {
                             return (
                               <PaginationItem key={page}>
                                 <PaginationEllipsis className="text-gray-400" />
                               </PaginationItem>
-                            );
+                            )
                           }
-                          return null;
+                          return null
                         })}
 
                         <PaginationItem>
@@ -273,8 +260,8 @@ export default function StarWarsBrowser() {
 
                 {/* Results Info */}
                 <div className="text-center mt-6 text-sm text-gray-300">
-                  Showing page {currentPage} of {totalPages} ({totalEntities}{" "}
-                  total {getCurrentCategoryLabel().toLowerCase()})
+                  Showing page {currentPage} of {totalPages} ({totalEntities} total{" "}
+                  {getCurrentCategoryLabel().toLowerCase()})
                 </div>
               </>
             )}
@@ -282,5 +269,5 @@ export default function StarWarsBrowser() {
         </div>
       </div>
     </div>
-  );
+  )
 }
