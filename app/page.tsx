@@ -1,7 +1,7 @@
-"use client"
+"use client";
 
-import StarWarsBrowser from "../star-wars-browser"
+import StarWarsBrowser from "../star-wars-browser";
 
 export default function Page() {
-  return <StarWarsBrowser />
+  return <StarWarsBrowser />;
 }
