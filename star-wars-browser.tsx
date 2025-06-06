@@ -1,7 +1,9 @@
-"use client"
-import { useState, useEffect } from "react"
-import { Card, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
+"use client";
+
+import type React from "react";
+import { useState, useEffect } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import {
   Pagination,
   PaginationContent,
@@ -10,136 +12,100 @@ import {
   PaginationLink,
   PaginationNext,
   PaginationPrevious,
-} from "@/components/ui/pagination"
-import { Loader2, Menu, X, AlertTriangle, RefreshCw } from "lucide-react"
-import { enhancedStarWarsService } from "@/services/enhancedStarWarsService"
-import { type EnhancedEntity, ENTITY_MAPPINGS } from "@/services/enhancedTypes"
-import type { EntityType } from "@/services/types"
-import EnhancedStarWarsSidebar from "@/components/EnhancedStarWarsSidebar"
-import EnhancedEntityCard from "@/components/EnhancedEntityCard"
-import { swapiService } from "@/services/swapiService"
+} from "@/components/ui/pagination";
+import { Loader2, Menu, X } from "lucide-react";
+import { starWarsServices } from "@/services/starWarsService";
+import { BaseEntity, EntityType, ENTITY_CATEGORIES } from "@/services/types";
+import StarWarsSidebar from "@/components/StarWarsSidebar";
+import EntityCard from "@/components/EntityCard";
 
 export default function StarWarsBrowser() {
-  const [entities, setEntities] = useState<EnhancedEntity[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [currentPage, setCurrentPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
-  const [totalEntities, setTotalEntities] = useState(0)
-  const [selectedCategory, setSelectedCategory] = useState<EntityType>("characters")
-  const [searchQuery, setSearchQuery] = useState("")
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-  const [entityCounts, setEntityCounts] = useState<Record<EntityType, number>>({})
-  const [swapiStatus, setSwapiStatus] = useState<"checking" | "available" | "unavailable">("checking")
-  const [enhancementInProgress, setEnhancementInProgress] = useState(false)
+  const [entities, setEntities] = useState<BaseEntity[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalEntities, setTotalEntities] = useState(0);
+  const [selectedCategory, setSelectedCategory] =
+    useState<EntityType>("characters");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  const fetchEntities = async (page: number, category: EntityType, search?: string) => {
+  const fetchEntities = async (
+    page: number,
+    category: EntityType,
+    search?: string,
+  ) => {
     try {
-      setLoading(true)
-      setError(null)
+      setLoading(true);
+      setError(null);
 
-      console.log(`Fetching ${category} page ${page} with search: ${search || "none"}`)
-
-      const response = await enhancedStarWarsService.getEnhancedEntities(category, {
+      const service = starWarsServices[category];
+      const response = await service.getEntities({
         page,
         limit: 9,
         search: search || undefined,
-      })
+      });
 
       if (response.success) {
-        console.log(`Received ${response.data.data.length} enhanced entities`)
-
-        // Log the first entity to see what data we have
-        if (response.data.data.length > 0) {
-          console.log("First entity data:", response.data.data[0])
-        }
-
-        setEntities(response.data.data)
-        setTotalPages(Math.ceil(response.data.info.total / response.data.info.limit))
-        setTotalEntities(response.data.info.total)
-        setCurrentPage(response.data.info.page)
-
-        // Update entity counts
-        setEntityCounts((prev) => ({
-          ...prev,
-          [category]: response.data.info.total,
-        }))
+        setEntities(response.data.data);
+        setTotalPages(
+          Math.ceil(response.data.info.total / response.data.info.limit),
+        );
+        setTotalEntities(response.data.info.total);
+        setCurrentPage(response.data.info.page);
       } else {
-        setError(response.error || `Failed to fetch ${category}`)
+        setError(response.error || `Failed to fetch ${category}`);
       }
     } catch (err) {
-      setError("An unexpected error occurred. Please try again later.")
-      console.error(`Error fetching ${category}:`, err)
+      setError("An unexpected error occurred. Please try again later.");
+      console.error(`Error fetching ${category}:`, err);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
-
-  const checkSwapiStatus = async () => {
-    try {
-      setSwapiStatus("checking")
-      const available = await swapiService.checkAvailability()
-      setSwapiStatus(available ? "available" : "unavailable")
-    } catch (error) {
-      setSwapiStatus("unavailable")
-    }
-  }
+  };
 
   useEffect(() => {
-    checkSwapiStatus()
-  }, [])
+    fetchEntities(1, selectedCategory, searchQuery);
+    setCurrentPage(1);
+  }, [selectedCategory, searchQuery]);
 
   useEffect(() => {
-    fetchEntities(1, selectedCategory, searchQuery)
-    setCurrentPage(1)
-  }, [selectedCategory, searchQuery])
-
-  useEffect(() => {
-    fetchEntities(currentPage, selectedCategory, searchQuery)
-  }, [currentPage])
+    fetchEntities(currentPage, selectedCategory, searchQuery);
+  }, [currentPage]);
 
   const handlePageChange = (page: number) => {
     if (page >= 1 && page <= totalPages) {
-      setCurrentPage(page)
+      setCurrentPage(page);
     }
-  }
+  };
 
   const handleCategoryChange = (category: EntityType) => {
-    setSelectedCategory(category)
-    setCurrentPage(1)
-  }
+    setSelectedCategory(category);
+    setCurrentPage(1);
+  };
 
   const handleSearchChange = (query: string) => {
-    setSearchQuery(query)
-    setCurrentPage(1)
-  }
+    setSearchQuery(query);
+    setCurrentPage(1);
+  };
 
   const handleSearchClear = () => {
-    setSearchQuery("")
-    setCurrentPage(1)
-  }
+    setSearchQuery("");
+    setCurrentPage(1);
+  };
 
-  const handleViewDetails = (entity: EnhancedEntity) => {
+  const handleViewDetails = (entity: BaseEntity) => {
     // TODO: Implement detail modal or navigation
-    console.log("View details for:", entity)
-  }
-
-  const handleRetrySwapiConnection = async () => {
-    setEnhancementInProgress(true)
-    enhancedStarWarsService.retrySwapiConnection()
-    enhancedStarWarsService.clearCache() // Clear cache to force re-enhancement
-    await checkSwapiStatus()
-    await fetchEntities(currentPage, selectedCategory, searchQuery)
-    setEnhancementInProgress(false)
-  }
+    console.log("View details for:", entity);
+  };
 
   const getCurrentCategoryLabel = () => {
-    return ENTITY_MAPPINGS.find((mapping) => mapping.databankType === selectedCategory)?.displayName || "Items"
-  }
-
-  const getEnhancedCount = () => {
-    return entities.filter((entity) => entity.swapiMatch).length
-  }
+    return (
+      ENTITY_CATEGORIES.find((cat) => cat.type === selectedCategory)?.label ||
+      "Items"
+    );
+  };
 
   if (error) {
     return (
@@ -152,10 +118,11 @@ export default function StarWarsBrowser() {
         <div className="relative z-10 container mx-auto px-4 py-8 flex items-center justify-center min-h-screen">
           <Card className="bg-slate-800/80 backdrop-blur-sm border-slate-700">
             <CardContent className="p-6 text-center">
-              <AlertTriangle className="w-12 h-12 text-red-400 mx-auto mb-4" />
               <p className="text-red-400 mb-4">{error}</p>
               <Button
-                onClick={() => fetchEntities(currentPage, selectedCategory, searchQuery)}
+                onClick={() =>
+                  fetchEntities(currentPage, selectedCategory, searchQuery)
+                }
                 className="bg-yellow-500 text-black hover:bg-yellow-400"
               >
                 Try Again
@@ -164,7 +131,7 @@ export default function StarWarsBrowser() {
           </Card>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -182,14 +149,13 @@ export default function StarWarsBrowser() {
         <div
           className={`fixed top-0 left-0 h-full z-20 transition-transform duration-300 ${sidebarCollapsed ? "translate-x-0" : "translate-x-0"}`}
         >
-          <EnhancedStarWarsSidebar
+          <StarWarsSidebar
             selectedCategory={selectedCategory}
             searchQuery={searchQuery}
             onCategoryChange={handleCategoryChange}
             onSearchChange={handleSearchChange}
             onSearchClear={handleSearchClear}
             isCollapsed={sidebarCollapsed}
-            entityCounts={entityCounts}
           />
         </div>
 
@@ -199,122 +165,55 @@ export default function StarWarsBrowser() {
           className="fixed top-4 left-4 z-30 md:hidden bg-slate-800/80 backdrop-blur-sm text-white hover:bg-slate-700"
           size="icon"
         >
-          {sidebarCollapsed ? <Menu className="h-4 w-4" /> : <X className="h-4 w-4" />}
+          {sidebarCollapsed ? (
+            <Menu className="h-4 w-4" />
+          ) : (
+            <X className="h-4 w-4" />
+          )}
         </Button>
 
         {/* Main Content */}
-        <div className={`flex-1 transition-all duration-300 ${sidebarCollapsed ? "ml-16" : "ml-80"}`}>
+        <div
+          className={`flex-1 transition-all duration-300 ${sidebarCollapsed ? "ml-16" : "ml-80"}`}
+        >
           <div className="container mx-auto px-4 py-8">
             <div className="mb-8 text-center">
               <h1 className="font-star-wars text-4xl font-bold text-yellow-500 mb-2 drop-shadow-lg">
                 Star Wars {getCurrentCategoryLabel()}
               </h1>
-              <p className="text-yellow-500">Enhanced with SWAPI data • Explore the galaxy far, far away...</p>
+              <p className="text-yellow-500">
+                Explore the galaxy far, far away...
+              </p>
               {totalEntities > 0 && (
-                <div className="text-sm text-gray-400 mt-2 space-y-1">
-                  <p>
-                    {totalEntities} {getCurrentCategoryLabel().toLowerCase()} in the databank
-                  </p>
-                  {getEnhancedCount() > 0 && (
-                    <p className="text-green-400">{getEnhancedCount()} enhanced with SWAPI data</p>
-                  )}
-                </div>
+                <p className="text-sm text-gray-400 mt-2">
+                  {totalEntities} {getCurrentCategoryLabel().toLowerCase()} in
+                  the databank
+                </p>
               )}
-            </div>
-
-            {/* SWAPI Status */}
-            <div className="mb-6 flex justify-center">
-              <div className="bg-slate-800/80 backdrop-blur-sm rounded-lg p-3 flex items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <div
-                    className={`w-3 h-3 rounded-full ${
-                      swapiStatus === "available"
-                        ? "bg-green-500"
-                        : swapiStatus === "checking"
-                          ? "bg-yellow-500"
-                          : "bg-red-500"
-                    }`}
-                  ></div>
-                  <span className="text-sm text-gray-300">SWAPI Status:</span>
-                </div>
-                {swapiStatus === "available" && <span className="text-sm text-green-400">Available</span>}
-                {swapiStatus === "checking" && <span className="text-sm text-yellow-400">Checking...</span>}
-                {swapiStatus === "unavailable" && <span className="text-sm text-red-400">Unavailable</span>}
-
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleRetrySwapiConnection}
-                  disabled={enhancementInProgress || swapiStatus === "checking"}
-                  className="ml-2"
-                >
-                  {enhancementInProgress ? (
-                    <Loader2 className="w-4 h-4 animate-spin mr-1" />
-                  ) : (
-                    <RefreshCw className="w-4 h-4 mr-1" />
-                  )}
-                  Refresh SWAPI
-                </Button>
-              </div>
             </div>
 
             {loading ? (
               <div className="flex items-center justify-center min-h-[400px]">
                 <div className="text-center">
                   <Loader2 className="w-8 h-8 animate-spin text-yellow-500 mx-auto mb-4" />
-                  <p className="text-white">Loading and enhancing {getCurrentCategoryLabel().toLowerCase()}...</p>
-                  <div className="text-sm text-gray-400 mt-2 space-y-1">
-                    <p>Merging Databank and SWAPI data</p>
-                    {swapiStatus === "checking" && <p className="text-blue-400">Checking SWAPI availability...</p>}
-                    {swapiStatus === "available" && <p className="text-green-400">SWAPI enhancement active</p>}
-                    {swapiStatus === "unavailable" && (
-                      <div className="space-y-2">
-                        <p className="text-orange-400">SWAPI unavailable - using Databank only</p>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={handleRetrySwapiConnection}
-                          disabled={enhancementInProgress}
-                          className="text-xs"
-                        >
-                          Retry SWAPI Connection
-                        </Button>
-                      </div>
-                    )}
-                  </div>
+                  <p className="text-white">
+                    Loading {getCurrentCategoryLabel().toLowerCase()}...
+                  </p>
                 </div>
               </div>
             ) : (
               <>
                 {/* Entity Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-                  {entities.length > 0 ? (
-                    entities.map((entity) => (
-                      <EnhancedEntityCard
-                        key={entity._id}
-                        entity={entity}
-                        entityType={selectedCategory}
-                        onViewDetails={handleViewDetails}
-                      />
-                    ))
-                  ) : (
-                    <div className="col-span-3 text-center py-12">
-                      <p className="text-gray-400">No {getCurrentCategoryLabel().toLowerCase()} found</p>
-                    </div>
-                  )}
+                  {entities.map((entity) => (
+                    <EntityCard
+                      key={entity._id}
+                      entity={entity}
+                      entityType={selectedCategory}
+                      onViewDetails={handleViewDetails}
+                    />
+                  ))}
                 </div>
-
-                {/* Debug Info */}
-                {entities.length > 0 && (
-                  <div className="mb-8 p-4 bg-slate-800/80 backdrop-blur-sm rounded-lg">
-                    <h3 className="text-sm font-medium text-yellow-500 mb-2">Debug Info:</h3>
-                    <p className="text-xs text-gray-400">
-                      First entity has {Object.keys(entities[0]).length} properties. SWAPI Match:{" "}
-                      {entities[0].swapiMatch ? "Yes" : "No"}
-                    </p>
-                    <p className="text-xs text-gray-400 mt-1">Properties: {Object.keys(entities[0]).join(", ")}</p>
-                  </div>
-                )}
 
                 {/* Pagination */}
                 {totalPages > 1 && (
@@ -328,7 +227,10 @@ export default function StarWarsBrowser() {
                           />
                         </PaginationItem>
 
-                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                        {Array.from(
+                          { length: totalPages },
+                          (_, i) => i + 1,
+                        ).map((page) => {
                           if (
                             page === 1 ||
                             page === totalPages ||
@@ -344,15 +246,18 @@ export default function StarWarsBrowser() {
                                   {page}
                                 </PaginationLink>
                               </PaginationItem>
-                            )
-                          } else if (page === currentPage - 2 || page === currentPage + 2) {
+                            );
+                          } else if (
+                            page === currentPage - 2 ||
+                            page === currentPage + 2
+                          ) {
                             return (
                               <PaginationItem key={page}>
                                 <PaginationEllipsis className="text-gray-400" />
                               </PaginationItem>
-                            )
+                            );
                           }
-                          return null
+                          return null;
                         })}
 
                         <PaginationItem>
@@ -368,8 +273,8 @@ export default function StarWarsBrowser() {
 
                 {/* Results Info */}
                 <div className="text-center mt-6 text-sm text-gray-300">
-                  Showing page {currentPage} of {totalPages} ({totalEntities} total{" "}
-                  {getCurrentCategoryLabel().toLowerCase()})
+                  Showing page {currentPage} of {totalPages} ({totalEntities}{" "}
+                  total {getCurrentCategoryLabel().toLowerCase()})
                 </div>
               </>
             )}
@@ -377,5 +282,5 @@ export default function StarWarsBrowser() {
         </div>
       </div>
     </div>
-  )
+  );
 }
