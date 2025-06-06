@@ -11,7 +11,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
-import { Loader2, Menu, X } from "lucide-react"
+import { Loader2, Menu, X, AlertTriangle, RefreshCw } from "lucide-react"
 import { enhancedStarWarsService } from "@/services/enhancedStarWarsService"
 import { type EnhancedEntity, ENTITY_MAPPINGS } from "@/services/enhancedTypes"
 import type { EntityType } from "@/services/types"
@@ -31,11 +31,14 @@ export default function StarWarsBrowser() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [entityCounts, setEntityCounts] = useState<Record<EntityType, number>>({})
   const [swapiStatus, setSwapiStatus] = useState<"checking" | "available" | "unavailable">("checking")
+  const [enhancementInProgress, setEnhancementInProgress] = useState(false)
 
   const fetchEntities = async (page: number, category: EntityType, search?: string) => {
     try {
       setLoading(true)
       setError(null)
+
+      console.log(`Fetching ${category} page ${page} with search: ${search || "none"}`)
 
       const response = await enhancedStarWarsService.getEnhancedEntities(category, {
         page,
@@ -44,6 +47,13 @@ export default function StarWarsBrowser() {
       })
 
       if (response.success) {
+        console.log(`Received ${response.data.data.length} enhanced entities`)
+
+        // Log the first entity to see what data we have
+        if (response.data.data.length > 0) {
+          console.log("First entity data:", response.data.data[0])
+        }
+
         setEntities(response.data.data)
         setTotalPages(Math.ceil(response.data.info.total / response.data.info.limit))
         setTotalEntities(response.data.info.total)
@@ -114,6 +124,15 @@ export default function StarWarsBrowser() {
     console.log("View details for:", entity)
   }
 
+  const handleRetrySwapiConnection = async () => {
+    setEnhancementInProgress(true)
+    enhancedStarWarsService.retrySwapiConnection()
+    enhancedStarWarsService.clearCache() // Clear cache to force re-enhancement
+    await checkSwapiStatus()
+    await fetchEntities(currentPage, selectedCategory, searchQuery)
+    setEnhancementInProgress(false)
+  }
+
   const getCurrentCategoryLabel = () => {
     return ENTITY_MAPPINGS.find((mapping) => mapping.databankType === selectedCategory)?.displayName || "Items"
   }
@@ -133,6 +152,7 @@ export default function StarWarsBrowser() {
         <div className="relative z-10 container mx-auto px-4 py-8 flex items-center justify-center min-h-screen">
           <Card className="bg-slate-800/80 backdrop-blur-sm border-slate-700">
             <CardContent className="p-6 text-center">
+              <AlertTriangle className="w-12 h-12 text-red-400 mx-auto mb-4" />
               <p className="text-red-400 mb-4">{error}</p>
               <Button
                 onClick={() => fetchEntities(currentPage, selectedCategory, searchQuery)}
@@ -202,6 +222,42 @@ export default function StarWarsBrowser() {
               )}
             </div>
 
+            {/* SWAPI Status */}
+            <div className="mb-6 flex justify-center">
+              <div className="bg-slate-800/80 backdrop-blur-sm rounded-lg p-3 flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <div
+                    className={`w-3 h-3 rounded-full ${
+                      swapiStatus === "available"
+                        ? "bg-green-500"
+                        : swapiStatus === "checking"
+                          ? "bg-yellow-500"
+                          : "bg-red-500"
+                    }`}
+                  ></div>
+                  <span className="text-sm text-gray-300">SWAPI Status:</span>
+                </div>
+                {swapiStatus === "available" && <span className="text-sm text-green-400">Available</span>}
+                {swapiStatus === "checking" && <span className="text-sm text-yellow-400">Checking...</span>}
+                {swapiStatus === "unavailable" && <span className="text-sm text-red-400">Unavailable</span>}
+
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleRetrySwapiConnection}
+                  disabled={enhancementInProgress || swapiStatus === "checking"}
+                  className="ml-2"
+                >
+                  {enhancementInProgress ? (
+                    <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                  ) : (
+                    <RefreshCw className="w-4 h-4 mr-1" />
+                  )}
+                  Refresh SWAPI
+                </Button>
+              </div>
+            </div>
+
             {loading ? (
               <div className="flex items-center justify-center min-h-[400px]">
                 <div className="text-center">
@@ -217,10 +273,8 @@ export default function StarWarsBrowser() {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => {
-                            enhancedStarWarsService.retrySwapiConnection()
-                            checkSwapiStatus()
-                          }}
+                          onClick={handleRetrySwapiConnection}
+                          disabled={enhancementInProgress}
                           className="text-xs"
                         >
                           Retry SWAPI Connection
@@ -234,15 +288,33 @@ export default function StarWarsBrowser() {
               <>
                 {/* Entity Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-                  {entities.map((entity) => (
-                    <EnhancedEntityCard
-                      key={entity._id}
-                      entity={entity}
-                      entityType={selectedCategory}
-                      onViewDetails={handleViewDetails}
-                    />
-                  ))}
+                  {entities.length > 0 ? (
+                    entities.map((entity) => (
+                      <EnhancedEntityCard
+                        key={entity._id}
+                        entity={entity}
+                        entityType={selectedCategory}
+                        onViewDetails={handleViewDetails}
+                      />
+                    ))
+                  ) : (
+                    <div className="col-span-3 text-center py-12">
+                      <p className="text-gray-400">No {getCurrentCategoryLabel().toLowerCase()} found</p>
+                    </div>
+                  )}
                 </div>
+
+                {/* Debug Info */}
+                {entities.length > 0 && (
+                  <div className="mb-8 p-4 bg-slate-800/80 backdrop-blur-sm rounded-lg">
+                    <h3 className="text-sm font-medium text-yellow-500 mb-2">Debug Info:</h3>
+                    <p className="text-xs text-gray-400">
+                      First entity has {Object.keys(entities[0]).length} properties. SWAPI Match:{" "}
+                      {entities[0].swapiMatch ? "Yes" : "No"}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1">Properties: {Object.keys(entities[0]).join(", ")}</p>
+                  </div>
+                )}
 
                 {/* Pagination */}
                 {totalPages > 1 && (

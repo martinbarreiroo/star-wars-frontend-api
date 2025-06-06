@@ -41,12 +41,15 @@ class EnhancedStarWarsService {
       return this.cache.get(cacheKey)!
     }
 
+    // Create base enhanced entity with all fields from the original entity
     const enhancedEntity: EnhancedEntity = {
       ...entity,
       films: [],
       swapiMatch: false,
       enhancedAt: new Date().toISOString(),
     }
+
+    console.log(`Enhancing ${entityType} entity: ${entity.name}`)
 
     // Check if SWAPI is available before attempting enhancement
     const swapiAvailable = await this.checkSwapiAvailability()
@@ -66,6 +69,8 @@ class EnhancedStarWarsService {
           try {
             swapiData = await swapiService.searchCharacters(entity.name)
             if (swapiData) {
+              console.log(`Found SWAPI match for character: ${entity.name}`)
+
               // Map exact SWAPI fields
               enhancedEntity.height = swapiData.height !== "unknown" ? swapiData.height : undefined
               enhancedEntity.mass = swapiData.mass !== "unknown" ? swapiData.mass : undefined
@@ -91,6 +96,8 @@ class EnhancedStarWarsService {
 
               enhancedEntity.swapiMatch = true
               console.log(`Successfully enhanced character: ${entity.name}`)
+            } else {
+              console.log(`No SWAPI match found for character: ${entity.name}`)
             }
           } catch (error) {
             console.warn(`Failed to enhance character ${entity.name}:`, error)
@@ -102,6 +109,8 @@ class EnhancedStarWarsService {
             // Droids are also in the people endpoint in SWAPI
             swapiData = await swapiService.searchCharacters(entity.name)
             if (swapiData) {
+              console.log(`Found SWAPI match for droid: ${entity.name}`)
+
               enhancedEntity.height = swapiData.height !== "unknown" ? swapiData.height : undefined
               enhancedEntity.mass = swapiData.mass !== "unknown" ? swapiData.mass : undefined
 
@@ -112,6 +121,8 @@ class EnhancedStarWarsService {
 
               enhancedEntity.swapiMatch = true
               console.log(`Successfully enhanced droid: ${entity.name}`)
+            } else {
+              console.log(`No SWAPI match found for droid: ${entity.name}`)
             }
           } catch (error) {
             console.warn(`Failed to enhance droid ${entity.name}:`, error)
@@ -127,6 +138,8 @@ class EnhancedStarWarsService {
             }
 
             if (swapiData) {
+              console.log(`Found SWAPI match for vehicle: ${entity.name}`)
+
               // Map exact SWAPI fields
               enhancedEntity.model = swapiData.model !== "unknown" ? swapiData.model : undefined
               enhancedEntity.manufacturer = swapiData.manufacturer !== "unknown" ? swapiData.manufacturer : undefined
@@ -156,6 +169,8 @@ class EnhancedStarWarsService {
 
               enhancedEntity.swapiMatch = true
               console.log(`Successfully enhanced vehicle: ${entity.name}`)
+            } else {
+              console.log(`No SWAPI match found for vehicle: ${entity.name}`)
             }
           } catch (error) {
             console.warn(`Failed to enhance vehicle ${entity.name}:`, error)
@@ -167,6 +182,8 @@ class EnhancedStarWarsService {
           try {
             swapiData = await swapiService.searchSpecies(entity.name)
             if (swapiData) {
+              console.log(`Found SWAPI match for species: ${entity.name}`)
+
               // Map exact SWAPI fields
               enhancedEntity.classification =
                 swapiData.classification !== "unknown" ? swapiData.classification : undefined
@@ -196,6 +213,8 @@ class EnhancedStarWarsService {
 
               enhancedEntity.swapiMatch = true
               console.log(`Successfully enhanced species: ${entity.name}`)
+            } else {
+              console.log(`No SWAPI match found for species: ${entity.name}`)
             }
           } catch (error) {
             console.warn(`Failed to enhance species ${entity.name}:`, error)
@@ -206,6 +225,8 @@ class EnhancedStarWarsService {
           try {
             swapiData = await swapiService.searchPlanets(entity.name)
             if (swapiData) {
+              console.log(`Found SWAPI match for location: ${entity.name}`)
+
               // Map exact SWAPI fields
               enhancedEntity.climate = swapiData.climate !== "unknown" ? swapiData.climate : undefined
               enhancedEntity.terrain = swapiData.terrain !== "unknown" ? swapiData.terrain : undefined
@@ -225,6 +246,8 @@ class EnhancedStarWarsService {
 
               enhancedEntity.swapiMatch = true
               console.log(`Successfully enhanced location: ${entity.name}`)
+            } else {
+              console.log(`No SWAPI match found for location: ${entity.name}`)
             }
           } catch (error) {
             console.warn(`Failed to enhance location ${entity.name}:`, error)
@@ -240,6 +263,12 @@ class EnhancedStarWarsService {
       console.warn(`Error enhancing entity ${entity.name}:`, error)
       // Continue with basic entity data
     }
+
+    // Log the enhanced entity data
+    console.log(
+      `Enhanced entity ${entity.name} has fields:`,
+      Object.keys(enhancedEntity).filter((key) => enhancedEntity[key as keyof EnhancedEntity] !== undefined),
+    )
 
     this.cache.set(cacheKey, enhancedEntity)
     return enhancedEntity
