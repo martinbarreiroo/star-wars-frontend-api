@@ -32,7 +32,7 @@ export default function StarWarsBrowser() {
     useState<EntityType>("characters");
   const [searchQuery, setSearchQuery] = useState("");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  
+
   // SWAPI test states
   const [swapiTestResult, setSwapiTestResult] = useState<string | null>(null);
   const [swapiTesting, setSwapiTesting] = useState(false);
@@ -109,14 +109,14 @@ export default function StarWarsBrowser() {
   const testSwapiApproaches = async () => {
     setSwapiTesting(true);
     setSwapiTestResult(null);
-    
+
     try {
       let results = "🧪 SWAPI Access Test Results:\n\n";
-      
+
       // Test 1: Direct SWAPI call (should fail with CORS)
       console.log("🔗 Testing direct SWAPI access...");
       const directTest = await swapiTestService.testConnection();
-      
+
       if (directTest.corsError) {
         results += "❌ Direct SWAPI Access: CORS ERROR (Expected)\n";
         results += "   This confirms SWAPI blocks browser requests\n\n";
@@ -125,14 +125,16 @@ export default function StarWarsBrowser() {
       } else {
         results += `❌ Direct SWAPI Access: ${directTest.error}\n\n`;
       }
-      
+
       // Test 2: Next.js API Route (should work!)
       console.log("🚀 Testing Next.js API route proxy...");
       const proxyTest = await swapiProxyService.searchPeople("Leia");
-      
+
       if (proxyTest.success) {
         const foundCount = proxyTest.data.results.length;
-        const names = proxyTest.data.results.map((person: SwapiPerson) => person.name).join(", ");
+        const names = proxyTest.data.results
+          .map((person: SwapiPerson) => person.name)
+          .join(", ");
         results += "✅ Next.js API Route: SUCCESS! 🎉\n";
         results += `   Found ${foundCount} character(s): ${names}\n`;
         results += `   Total in SWAPI: ${proxyTest.data.count}\n`;
@@ -140,16 +142,15 @@ export default function StarWarsBrowser() {
       } else {
         results += `❌ Next.js API Route: ${proxyTest.error}\n\n`;
       }
-      
+
       // Summary
       results += "📋 SUMMARY:\n";
       results += "• Direct SWAPI calls are blocked by CORS\n";
       results += "• Next.js API routes solve this problem\n";
       results += "• Your Databank API works because it allows CORS\n";
       results += "• Use API routes for any CORS-restricted APIs";
-      
+
       setSwapiTestResult(results);
-      
     } catch (error: any) {
       console.error("SWAPI test error:", error);
       setSwapiTestResult(`❌ Unexpected error: ${error.message}`);
@@ -248,12 +249,15 @@ export default function StarWarsBrowser() {
                   the databank
                 </p>
               )}
-              
+
               {/* SWAPI Next.js Test Section */}
               <div className="mt-6 p-4 bg-slate-800/50 rounded-lg border border-slate-700">
-                <h3 className="text-lg text-yellow-500 mb-2">Next.js SWAPI Solution Test</h3>
+                <h3 className="text-lg text-yellow-500 mb-2">
+                  Next.js SWAPI Solution Test
+                </h3>
                 <p className="text-sm text-gray-400 mb-3">
-                  Compare direct SWAPI access (CORS blocked) vs Next.js API routes (works!)
+                  Compare direct SWAPI access (CORS blocked) vs Next.js API
+                  routes (works!)
                 </p>
                 <Button
                   onClick={testSwapiApproaches}
@@ -269,7 +273,7 @@ export default function StarWarsBrowser() {
                     "Test SWAPI: Direct vs API Route"
                   )}
                 </Button>
-                
+
                 {swapiTestResult && (
                   <div className="text-sm p-3 rounded border bg-slate-900/50 border-slate-600 text-gray-300">
                     <pre className="whitespace-pre-wrap font-mono text-xs">
@@ -277,13 +281,16 @@ export default function StarWarsBrowser() {
                     </pre>
                   </div>
                 )}
-                
+
                 <div className="mt-3 p-2 bg-slate-900/50 rounded text-xs text-gray-400">
-                  <strong>Next.js Solutions for CORS:</strong><br/>
-                  • ✅ API Routes: `/app/api/swapi/people/route.ts`<br/>
-                  • ✅ Server Components: Fetch data server-side<br/>
-                  • ✅ Server Actions: Handle forms server-side<br/>
-                  • Your Databank API works because it allows CORS!
+                  <strong>Next.js Solutions for CORS:</strong>
+                  <br />
+                  • ✅ API Routes: `/app/api/swapi/people/route.ts`
+                  <br />
+                  • ✅ Server Components: Fetch data server-side
+                  <br />
+                  • ✅ Server Actions: Handle forms server-side
+                  <br />• Your Databank API works because it allows CORS!
                 </div>
               </div>
             </div>

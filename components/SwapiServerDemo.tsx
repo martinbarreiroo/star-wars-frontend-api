@@ -20,18 +20,18 @@ interface SwapiResponse {
 }
 
 async function fetchSwapiPeople(search?: string): Promise<SwapiResponse> {
-  const url = search 
+  const url = search
     ? `https://swapi.dev/api/people/?search=${encodeURIComponent(search)}`
-    : 'https://swapi.dev/api/people/';
+    : "https://swapi.dev/api/people/";
 
   console.log(`🚀 Server Component fetching: ${url}`);
 
   const response = await fetch(url, {
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
     // Optional: Add cache control
-    next: { revalidate: 3600 } // Cache for 1 hour
+    next: { revalidate: 3600 }, // Cache for 1 hour
   });
 
   if (!response.ok) {
@@ -39,16 +39,18 @@ async function fetchSwapiPeople(search?: string): Promise<SwapiResponse> {
   }
 
   const data = await response.json();
-  console.log(`✅ Server Component success: Found ${data.results?.length || 0} people`);
-  
+  console.log(
+    `✅ Server Component success: Found ${data.results?.length || 0} people`,
+  );
+
   return data;
 }
 
 // This is a Server Component - runs on the server, no CORS issues
-export default async function SwapiServerDemo({ 
-  searchParams 
-}: { 
-  searchParams: { search?: string } 
+export default async function SwapiServerDemo({
+  searchParams,
+}: {
+  searchParams: { search?: string };
 }) {
   try {
     const swapiData = await fetchSwapiPeople(searchParams.search);
@@ -66,7 +68,8 @@ export default async function SwapiServerDemo({
               ✅ This data was fetched server-side (no CORS issues!)
             </p>
             <p className="text-sm text-gray-400">
-              Found {swapiData.count} people total, showing {swapiData.results.length}
+              Found {swapiData.count} people total, showing{" "}
+              {swapiData.results.length}
             </p>
           </CardContent>
         </Card>
@@ -80,12 +83,24 @@ export default async function SwapiServerDemo({
                 </CardTitle>
               </CardHeader>
               <CardContent className="text-sm text-gray-300">
-                <p><strong>Height:</strong> {person.height}cm</p>
-                <p><strong>Mass:</strong> {person.mass}kg</p>
-                <p><strong>Hair:</strong> {person.hair_color}</p>
-                <p><strong>Eyes:</strong> {person.eye_color}</p>
-                <p><strong>Birth Year:</strong> {person.birth_year}</p>
-                <p><strong>Gender:</strong> {person.gender}</p>
+                <p>
+                  <strong>Height:</strong> {person.height}cm
+                </p>
+                <p>
+                  <strong>Mass:</strong> {person.mass}kg
+                </p>
+                <p>
+                  <strong>Hair:</strong> {person.hair_color}
+                </p>
+                <p>
+                  <strong>Eyes:</strong> {person.eye_color}
+                </p>
+                <p>
+                  <strong>Birth Year:</strong> {person.birth_year}
+                </p>
+                <p>
+                  <strong>Gender:</strong> {person.gender}
+                </p>
               </CardContent>
             </Card>
           ))}

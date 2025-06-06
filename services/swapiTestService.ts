@@ -55,7 +55,9 @@ class SwapiTestService {
     this.apiClient.interceptors.request.use(
       (config) => {
         if (process.env.NODE_ENV === "development") {
-          console.log(`🚀 SWAPI Request: ${config.method?.toUpperCase()} ${config.url}`);
+          console.log(
+            `🚀 SWAPI Request: ${config.method?.toUpperCase()} ${config.url}`,
+          );
         }
         return config;
       },
@@ -69,7 +71,9 @@ class SwapiTestService {
     this.apiClient.interceptors.response.use(
       (response) => {
         if (process.env.NODE_ENV === "development") {
-          console.log(`✅ SWAPI Response: ${response.status} ${response.config.url}`);
+          console.log(
+            `✅ SWAPI Response: ${response.status} ${response.config.url}`,
+          );
         }
         return response;
       },
@@ -83,17 +87,19 @@ class SwapiTestService {
   /**
    * Test method to check if SWAPI is accessible
    */
-  async testConnection(): Promise<SwapiServiceResponse<{ status: string; message: string }>> {
+  async testConnection(): Promise<
+    SwapiServiceResponse<{ status: string; message: string }>
+  > {
     try {
       console.log("🔗 Testing SWAPI connection...");
-      
+
       // Try to fetch a simple endpoint
       const response = await this.apiClient.get("/people/1/");
 
       return {
         data: {
           status: "success",
-          message: "SWAPI is accessible from client-side"
+          message: "SWAPI is accessible from client-side",
         },
         success: true,
         corsError: false,
@@ -104,17 +110,20 @@ class SwapiTestService {
       let corsError = false;
       let message = "SWAPI connection failed";
 
-      if (error.code === "ERR_NETWORK" || 
-          (error.message && error.message.includes("CORS")) ||
-          (error.response === undefined && error.request)) {
-        message = "CORS error detected: SWAPI cannot be accessed from client-side";
+      if (
+        error.code === "ERR_NETWORK" ||
+        (error.message && error.message.includes("CORS")) ||
+        (error.response === undefined && error.request)
+      ) {
+        message =
+          "CORS error detected: SWAPI cannot be accessed from client-side";
         corsError = true;
       }
 
       return {
         data: {
           status: "error",
-          message
+          message,
         },
         success: false,
         error: message,
@@ -127,10 +136,12 @@ class SwapiTestService {
    * Search for people (characters) in SWAPI
    * Example: searchPeople("Leia")
    */
-  async searchPeople(searchQuery: string): Promise<SwapiServiceResponse<SwapiResponse>> {
+  async searchPeople(
+    searchQuery: string,
+  ): Promise<SwapiServiceResponse<SwapiResponse>> {
     try {
       console.log(`🔍 Searching SWAPI for people: "${searchQuery}"`);
-      
+
       const response = await this.apiClient.get<SwapiResponse>("/people/", {
         params: {
           search: searchQuery,
@@ -151,10 +162,13 @@ class SwapiTestService {
       let corsError = false;
 
       // Check if it's a CORS error
-      if (error.code === "ERR_NETWORK" || 
-          (error.message && error.message.includes("CORS")) ||
-          (error.response === undefined && error.request)) {
-        errorMessage = "CORS error: Cannot access SWAPI from client-side. This API requires server-side calls or a proxy.";
+      if (
+        error.code === "ERR_NETWORK" ||
+        (error.message && error.message.includes("CORS")) ||
+        (error.response === undefined && error.request)
+      ) {
+        errorMessage =
+          "CORS error: Cannot access SWAPI from client-side. This API requires server-side calls or a proxy.";
         corsError = true;
       } else if (error.response?.status === 404) {
         errorMessage = "No people found with that search term";
