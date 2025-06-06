@@ -8,4 +8,5 @@ git config core.hooksPath .scripts
 chmod +x .scripts/pre-commit
 # Add other hooks here ...
 
+
 echo "Git hooks permissions configured successfully."
