@@ -52,7 +52,15 @@ class SwapiProxyService {
   async getDatabankCharacter(name: string): Promise<ServiceResponse<DatabankCharacter | null>> {
     try {
       const encodedName = encodeURIComponent(name)
-      const response = await fetch(`${this.databankUrl}/characters/name/${encodedName}`)
+      const response = await fetch(`${this.databankUrl}/characters/name/${encodedName}`, {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        // Add timeout
+        signal: AbortSignal.timeout(8000), // 8 second timeout
+      })
 
       if (!response.ok) {
         if (response.status === 404) {
@@ -74,7 +82,7 @@ class SwapiProxyService {
       console.error(`❌ Databank fetch failed for ${name}:`, error)
       return {
         data: null,
-        success: false,
+        success: true, // Don't fail the whole request if databank is down
         error: error.message || "Failed to fetch from databank",
       }
     }

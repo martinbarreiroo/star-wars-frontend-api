@@ -36,6 +36,11 @@ export default function StarWarsBrowser() {
         setTotalPages(response.data.pagination.totalPages)
         setTotalCharacters(response.data.pagination.count)
         setCurrentPage(response.data.pagination.currentPage)
+
+        // Show a notice if using fallback data
+        if ((response as any).fallback) {
+          console.warn("⚠️ Using fallback data due to API connection issues")
+        }
       } else {
         setError(response.error || "Failed to fetch characters")
       }
