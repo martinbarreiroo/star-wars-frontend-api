@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
   Pagination,
   PaginationContent,
@@ -11,7 +12,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
-import { Loader2, Users, Database, Zap } from "lucide-react"
+import { Loader2, Users, Database, Zap, AlertTriangle } from "lucide-react"
 import { swapiProxyService } from "@/services/swapiProxyService"
 import type { EnhancedCharacter } from "@/services/types"
 import CharacterCard from "@/components/CharacterCard"
@@ -23,6 +24,7 @@ export default function StarWarsBrowser() {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [totalCharacters, setTotalCharacters] = useState(0)
+  const [usingMockData, setUsingMockData] = useState(false)
 
   const fetchCharacters = async (page: number) => {
     try {
@@ -36,11 +38,7 @@ export default function StarWarsBrowser() {
         setTotalPages(response.data.pagination.totalPages)
         setTotalCharacters(response.data.pagination.count)
         setCurrentPage(response.data.pagination.currentPage)
-
-        // Show a notice if using fallback data
-        if ((response as any).fallback) {
-          console.warn("⚠️ Using fallback data due to API connection issues")
-        }
+        setUsingMockData(!!response.isMockData)
       } else {
         setError(response.error || "Failed to fetch characters")
       }
@@ -110,6 +108,16 @@ export default function StarWarsBrowser() {
               Star Wars Characters
             </h1>
             <p className="text-yellow-500 text-lg mb-4">Enhanced with SWAPI & Databank APIs</p>
+
+            {/* Mock Data Alert */}
+            {usingMockData && (
+              <Alert className="bg-amber-900/50 border-amber-500 mb-4 max-w-4xl mx-auto">
+                <AlertTriangle className="h-4 w-4 text-amber-500" />
+                <AlertDescription className="text-amber-200">
+                  Using mock data because the Star Wars API is currently unavailable. Some features may be limited.
+                </AlertDescription>
+              </Alert>
+            )}
 
             {/* API Info Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto mb-6">

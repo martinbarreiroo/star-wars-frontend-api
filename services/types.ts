@@ -45,4 +45,5 @@ export interface ServiceResponse<T> {
   data: T
   success: boolean
   error?: string
+  isMockData?: boolean
 }
