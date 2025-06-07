@@ -83,16 +83,6 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const search = searchParams.get("search")
   const page = searchParams.get("page") || "1"
-  const useMock = searchParams.get("mock") === "true"
-
-  // Return mock data if requested or if we're in development mode
-  if (useMock || process.env.NODE_ENV === "development") {
-    console.log("🔄 Using mock SWAPI data")
-    return NextResponse.json({
-      success: true,
-      data: MOCK_PEOPLE_DATA,
-    })
-  }
 
   try {
     // Build SWAPI URL
@@ -112,44 +102,96 @@ export async function GET(request: NextRequest) {
 
     console.log(`🚀 Server-side SWAPI request: ${swapiUrl}`)
 
-    // Make the request with a timeout
+    // Create AbortController for timeout
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 5000) // 5 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 15000) // 15 second timeout
 
-    const response = await fetch(swapiUrl, {
-      headers: {
-        "Content-Type": "application/json",
-        "User-Agent": "Star Wars Frontend/1.0",
-      },
-      signal: controller.signal,
-      // Use node-fetch specific options
-      agent: null,
-    })
+    try {
+      // Make the request with proper configuration for server environment
+      const response = await fetch(swapiUrl, {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          "User-Agent": "Mozilla/5.0 (compatible; StarWarsApp/1.0)",
+          "Cache-Control": "no-cache",
+        },
+        signal: controller.signal,
+        // Add these options for better compatibility
+        cache: "no-store",
+        next: { revalidate: 0 },
+      })
 
-    clearTimeout(timeoutId)
+      clearTimeout(timeoutId)
 
-    if (!response.ok) {
-      throw new Error(`SWAPI responded with status: ${response.status}`)
+      if (!response.ok) {
+        throw new Error(`SWAPI responded with status: ${response.status} ${response.statusText}`)
+      }
+
+      const data = await response.json()
+
+      console.log(`✅ Server-side SWAPI success: Found ${data.results?.length || 0} people on page ${page}`)
+
+      return NextResponse.json({
+        success: true,
+        data,
+      })
+    } catch (fetchError: any) {
+      clearTimeout(timeoutId)
+
+      // If the main SWAPI endpoint fails, try the alternative endpoint
+      console.log("⚠️ Primary SWAPI endpoint failed, trying alternative...")
+
+      const altSwapiUrl = swapiUrl.replace("swapi.dev", "swapi.py4e.com")
+      console.log(`🔄 Trying alternative SWAPI: ${altSwapiUrl}`)
+
+      const altController = new AbortController()
+      const altTimeoutId = setTimeout(() => altController.abort(), 15000)
+
+      try {
+        const altResponse = await fetch(altSwapiUrl, {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            "User-Agent": "Mozilla/5.0 (compatible; StarWarsApp/1.0)",
+          },
+          signal: altController.signal,
+          cache: "no-store",
+        })
+
+        clearTimeout(altTimeoutId)
+
+        if (!altResponse.ok) {
+          throw new Error(`Alternative SWAPI responded with status: ${altResponse.status}`)
+        }
+
+        const altData = await altResponse.json()
+        console.log(`✅ Alternative SWAPI success: Found ${altData.results?.length || 0} people`)
+
+        return NextResponse.json({
+          success: true,
+          data: altData,
+        })
+      } catch (altError: any) {
+        clearTimeout(altTimeoutId)
+        throw new Error(`Both SWAPI endpoints failed. Primary: ${fetchError.message}, Alternative: ${altError.message}`)
+      }
     }
-
-    const data = await response.json()
-
-    console.log(`✅ Server-side SWAPI success: Found ${data.results?.length || 0} people`)
-
-    // Return the data to your frontend
-    return NextResponse.json({
-      success: true,
-      data,
-    })
   } catch (error: any) {
     console.error("❌ Server-side SWAPI error:", error)
 
-    // Fallback to mock data on error
-    console.log("🔄 Falling back to mock SWAPI data due to error")
-    return NextResponse.json({
-      success: true,
-      data: MOCK_PEOPLE_DATA,
-      isMockData: true,
-    })
+    return NextResponse.json(
+      {
+        success: false,
+        error: `Failed to fetch from SWAPI: ${error.message}`,
+        details: {
+          message: error.message,
+          name: error.name,
+          cause: error.cause?.toString(),
+        },
+      },
+      { status: 500 },
+    )
   }
 }

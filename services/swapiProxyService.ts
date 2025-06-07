@@ -1,40 +1,9 @@
 // Update to use the new types and add databank integration
 import type { SwapiResponse, ServiceResponse, DatabankCharacter, EnhancedCharacter } from "./types"
 
-// Mock data for Databank characters
-const MOCK_DATABANK_CHARACTERS: Record<string, DatabankCharacter> = {
-  "Luke Skywalker": {
-    _id: "luke-skywalker",
-    name: "Luke Skywalker",
-    description:
-      "Luke Skywalker was a Tatooine farmboy who rose from humble beginnings to become one of the greatest Jedi the galaxy has ever known.",
-    image: "https://lumiere-a.akamaihd.net/v1/images/luke-skywalker-main_92d422b0.jpeg?region=304%2C0%2C1778%2C1000",
-  },
-  "Darth Vader": {
-    _id: "darth-vader",
-    name: "Darth Vader",
-    description:
-      "Once a heroic Jedi Knight, Darth Vader was seduced by the dark side of the Force, became a Sith Lord, and led the Empire's eradication of the Jedi Order.",
-    image: "https://lumiere-a.akamaihd.net/v1/images/darth-vader-main_4560aff7.jpeg?region=0%2C67%2C1280%2C720",
-  },
-  "Leia Organa": {
-    _id: "leia-organa",
-    name: "Leia Organa",
-    description:
-      "Princess Leia Organa was one of the greatest leaders of the Rebel Alliance, fearless on the battlefield and dedicated to ending the Empire's tyranny.",
-    image: "https://lumiere-a.akamaihd.net/v1/images/leia-organa-feature-image_d0f5e953.jpeg?region=0%2C0%2C1280%2C720",
-  },
-}
-
 class SwapiProxyService {
   private baseUrl = "/api/swapi"
   private databankUrl = "https://starwars-databank-server.vercel.app/api/v1"
-  private useMockData = false
-
-  constructor() {
-    // Check if we should use mock data
-    this.useMockData = process.env.NODE_ENV === "development"
-  }
 
   /**
    * Get all people from SWAPI with pagination
@@ -43,15 +12,17 @@ class SwapiProxyService {
     try {
       console.log(`🔍 Fetching SWAPI people (page ${page})`)
 
-      const response = await fetch(`${this.baseUrl}/people?page=${page}&mock=${this.useMockData}`, {
+      const response = await fetch(`${this.baseUrl}/people?page=${page}`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
         },
+        cache: "no-store",
       })
 
       if (!response.ok) {
-        throw new Error(`API route responded with status: ${response.status}`)
+        const errorText = await response.text()
+        throw new Error(`API route responded with status: ${response.status}. ${errorText}`)
       }
 
       const result = await response.json()
@@ -65,12 +36,10 @@ class SwapiProxyService {
       return {
         data: result.data,
         success: true,
-        isMockData: result.isMockData,
       }
     } catch (error: any) {
       console.error("❌ SWAPI fetch failed:", error)
 
-      // Return empty data structure on error
       return {
         data: { count: 0, next: null, previous: null, results: [] },
         success: false,
@@ -84,18 +53,24 @@ class SwapiProxyService {
    */
   async getDatabankCharacter(name: string): Promise<ServiceResponse<DatabankCharacter | null>> {
     try {
-      // Use mock data if enabled
-      if (this.useMockData && MOCK_DATABANK_CHARACTERS[name]) {
-        console.log(`🔄 Using mock Databank data for ${name}`)
-        return {
-          data: MOCK_DATABANK_CHARACTERS[name],
-          success: true,
-          isMockData: true,
-        }
-      }
-
       const encodedName = encodeURIComponent(name)
-      const response = await fetch(`${this.databankUrl}/characters/name/${encodedName}`)
+
+      // Create AbortController for timeout
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout
+
+      const response = await fetch(`${this.databankUrl}/characters/name/${encodedName}`, {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          "User-Agent": "Mozilla/5.0 (compatible; StarWarsApp/1.0)",
+        },
+        signal: controller.signal,
+        cache: "no-store",
+      })
+
+      clearTimeout(timeoutId)
 
       if (!response.ok) {
         if (response.status === 404) {
@@ -115,17 +90,6 @@ class SwapiProxyService {
       }
     } catch (error: any) {
       console.error(`❌ Databank fetch failed for ${name}:`, error)
-
-      // Try to return mock data if available
-      if (MOCK_DATABANK_CHARACTERS[name]) {
-        console.log(`🔄 Falling back to mock Databank data for ${name}`)
-        return {
-          data: MOCK_DATABANK_CHARACTERS[name],
-          success: true,
-          isMockData: true,
-        }
-      }
-
       return {
         data: null,
         success: false,
@@ -153,20 +117,24 @@ class SwapiProxyService {
       // First get SWAPI characters
       const swapiResult = await this.getPeople(page)
 
-      if (!swapiResult.success || !swapiResult.data.results?.length) {
-        throw new Error(swapiResult.error || "Failed to fetch SWAPI data")
+      if (!swapiResult.success) {
+        return {
+          data: { characters: [], pagination: { count: 0, next: null, previous: null, currentPage: 1, totalPages: 1 } },
+          success: false,
+          error: swapiResult.error,
+        }
       }
 
-      // Enhance each character with databank info
+      // Enhance each character with databank info (but don't fail if databank is down)
       const enhancedCharacters: EnhancedCharacter[] = await Promise.all(
         swapiResult.data.results.map(async (character) => {
           const databankResult = await this.getDatabankCharacter(character.name)
 
           const enhanced: EnhancedCharacter = {
             ...character,
-            description: databankResult.data?.description,
-            image: databankResult.data?.image,
-            databankId: databankResult.data?._id,
+            description: databankResult.success ? databankResult.data?.description : undefined,
+            image: databankResult.success ? databankResult.data?.image : undefined,
+            databankId: databankResult.success ? databankResult.data?._id : undefined,
           }
 
           return enhanced
@@ -187,51 +155,13 @@ class SwapiProxyService {
           },
         },
         success: true,
-        isMockData: swapiResult.isMockData,
       }
     } catch (error: any) {
       console.error("❌ Enhanced characters fetch failed:", error)
-
-      // Return minimal mock data on error
-      const mockCharacters = Object.keys(MOCK_DATABANK_CHARACTERS).map((name) => {
-        const databankChar = MOCK_DATABANK_CHARACTERS[name]
-        return {
-          name: databankChar.name,
-          height: "unknown",
-          mass: "unknown",
-          hair_color: "unknown",
-          skin_color: "unknown",
-          eye_color: "unknown",
-          birth_year: "unknown",
-          gender: "unknown",
-          homeworld: "",
-          films: [],
-          species: [],
-          vehicles: [],
-          starships: [],
-          created: "",
-          edited: "",
-          url: "",
-          description: databankChar.description,
-          image: databankChar.image,
-          databankId: databankChar._id,
-        } as EnhancedCharacter
-      })
-
       return {
-        data: {
-          characters: mockCharacters,
-          pagination: {
-            count: mockCharacters.length,
-            next: null,
-            previous: null,
-            currentPage: 1,
-            totalPages: 1,
-          },
-        },
-        success: true,
-        isMockData: true,
-        error: error.message || "Failed to fetch enhanced characters, using fallback data",
+        data: { characters: [], pagination: { count: 0, next: null, previous: null, currentPage: 1, totalPages: 1 } },
+        success: false,
+        error: error.message || "Failed to fetch enhanced characters",
       }
     }
   }

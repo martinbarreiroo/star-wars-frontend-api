@@ -2,7 +2,6 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
   Pagination,
   PaginationContent,
@@ -12,7 +11,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
-import { Loader2, Users, Database, Zap, AlertTriangle } from "lucide-react"
+import { Loader2, Users, Database, Zap, RefreshCw } from "lucide-react"
 import { swapiProxyService } from "@/services/swapiProxyService"
 import type { EnhancedCharacter } from "@/services/types"
 import CharacterCard from "@/components/CharacterCard"
@@ -24,7 +23,6 @@ export default function StarWarsBrowser() {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [totalCharacters, setTotalCharacters] = useState(0)
-  const [usingMockData, setUsingMockData] = useState(false)
 
   const fetchCharacters = async (page: number) => {
     try {
@@ -38,7 +36,6 @@ export default function StarWarsBrowser() {
         setTotalPages(response.data.pagination.totalPages)
         setTotalCharacters(response.data.pagination.count)
         setCurrentPage(response.data.pagination.currentPage)
-        setUsingMockData(!!response.isMockData)
       } else {
         setError(response.error || "Failed to fetch characters")
       }
@@ -65,6 +62,10 @@ export default function StarWarsBrowser() {
     console.log("View details for:", character)
   }
 
+  const handleRetry = () => {
+    fetchCharacters(currentPage)
+  }
+
   if (error) {
     return (
       <div className="min-h-screen relative">
@@ -74,15 +75,21 @@ export default function StarWarsBrowser() {
           <div className="stars3"></div>
         </div>
         <div className="relative z-10 container mx-auto px-4 py-8 flex items-center justify-center min-h-screen">
-          <Card className="bg-slate-800/80 backdrop-blur-sm border-slate-700">
+          <Card className="bg-slate-800/80 backdrop-blur-sm border-slate-700 max-w-md">
             <CardContent className="p-6 text-center">
-              <p className="text-red-400 mb-4">{error}</p>
-              <Button
-                onClick={() => fetchCharacters(currentPage)}
-                className="bg-yellow-500 text-black hover:bg-yellow-400"
-              >
-                Try Again
-              </Button>
+              <div className="text-red-400 mb-4">
+                <h3 className="text-lg font-semibold mb-2">Connection Error</h3>
+                <p className="text-sm">{error}</p>
+              </div>
+              <div className="space-y-2">
+                <Button onClick={handleRetry} className="bg-yellow-500 text-black hover:bg-yellow-400 w-full">
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Try Again
+                </Button>
+                <p className="text-xs text-gray-400">
+                  Make sure you have an internet connection and the Star Wars API is accessible.
+                </p>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -108,16 +115,6 @@ export default function StarWarsBrowser() {
               Star Wars Characters
             </h1>
             <p className="text-yellow-500 text-lg mb-4">Enhanced with SWAPI & Databank APIs</p>
-
-            {/* Mock Data Alert */}
-            {usingMockData && (
-              <Alert className="bg-amber-900/50 border-amber-500 mb-4 max-w-4xl mx-auto">
-                <AlertTriangle className="h-4 w-4 text-amber-500" />
-                <AlertDescription className="text-amber-200">
-                  Using mock data because the Star Wars API is currently unavailable. Some features may be limited.
-                </AlertDescription>
-              </Alert>
-            )}
 
             {/* API Info Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto mb-6">
